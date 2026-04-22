@@ -14,6 +14,9 @@ let isSprinting = false;
 let isExhausted = false; // to adjust certain problems with stamina
 const maxStamina = 100;
 
+// shaking effect 
+let shakeTime = 0;
+
 // pages
 let pagesFound = 0;
 const page = {
@@ -50,6 +53,7 @@ window.addEventListener('keydown', (e) => {
     }
     // shooting for action mode
     if (e.code === 'Space' && gameStarted && gameMode === "action") {
+        shakeTime = 10;
         bullets.push({
             x: player.x + player.size / 2, // created at player postion
             y: player.y + player.size / 2,
@@ -127,13 +131,14 @@ function update() {
         player.x + player.size > stalker.x &&
         player.y < stalker.y + stalker.size &&
         player.y + player.size > stalker.y
-    ) { // reset
+    ) { // reset when loss
         alert("SLENDER MAN CAUGHT YOU!!");
         for (let key in keys) { keys[key] = false; }
         player.x = 50; player.y = 50;
         stalker.x = 500; stalker.y = 500;
         pagesFound = 0; stamina = 100;
         isSprinting = false;
+        shakeTime = 0;
         gameStarted = false;
     }
     // loop through bullets
@@ -163,16 +168,34 @@ function update() {
         page.y = Math.random() * (canvas.height - 30) + 15; 
         stalker.speed += 0.2; // buff for slender
     }
+    let dx = player.x - stalker.x;
+    let dy= player.y - stalker.y;
+    let distance = Math.sqrt(dx *dx + dy *dy);
 
+    if (gameMode === "horror" && distance < 150){
+        shakeTime = 5;
+    }
+    if (shakeTime > 0) shakeTime--;
+     // win reset
     if (pagesFound >= 8) { // win mechnic 
         alert("YOU WON!");
-        pagesFound = 0; gameStarted = false;
-        player.x = 50; player.y = 50;
+        pagesFound = 0; 
+        gameStarted = false;
+        player.x = 50; 
+        player.y = 50;
         isSprinting = false;
+        shakeTime =0;
     }
 }
 
 function draw() {
+    ctx.save();
+    if (shakeTime > 0) {
+        let shakeX = (Math.random() - 0.5) * 10;
+        let shakeY = (Math.random() - 0.5) * 10;
+        ctx.translate(shakeX, shakeY);
+    }
+    
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!gameStarted) { // menu
@@ -225,6 +248,8 @@ function draw() {
         ctx.strokeStyle = "white";
         ctx.strokeRect(20, 70, 100, 10);
     }
+    
+    ctx.restore();
 }
  // main loop
 function gameloop() {
