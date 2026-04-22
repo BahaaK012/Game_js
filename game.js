@@ -7,6 +7,7 @@ canvas.height = window.innerHeight;
 //game didnt start yet 
 let gameStarted = false;
 let gameMode = "";
+let endScreen = "";
 
 // stamina
 let stamina = 100;
@@ -47,13 +48,19 @@ window.addEventListener('keydown', (e) => {
 // force fix for the lowercase situation I had 
  keys[e.key.toLowerCase()] = true;
 
+ // check if end screen is showing 
+ if (!gameStarted && endScreen !==""){
+    endScreen = "";
+    return;
+ }
+
     // shift to sprint
     if (e.key.toLowerCase() === 'shift' && gameStarted && !isExhausted) {
         isSprinting = !isSprinting;
     }
     // shooting for action mode
     if (e.code === 'Space' && gameStarted && gameMode === "action") {
-        shakeTime = 10;
+        shakeTime = 10; // shake effect 
         bullets.push({
             x: player.x + player.size / 2, // created at player postion
             y: player.y + player.size / 2,
@@ -132,7 +139,7 @@ function update() {
         player.y < stalker.y + stalker.size &&
         player.y + player.size > stalker.y
     ) { // reset when loss
-        alert("SLENDER MAN CAUGHT YOU!!");
+       endScreen = "gameover"; // our new endscnree
         for (let key in keys) { keys[key] = false; }
         player.x = 50; player.y = 50;
         stalker.x = 500; stalker.y = 500;
@@ -173,12 +180,12 @@ function update() {
     let distance = Math.sqrt(dx *dx + dy *dy);
 
     if (gameMode === "horror" && distance < 150){
-        shakeTime = 5;
+        shakeTime = 5; // shake effect 
     }
     if (shakeTime > 0) shakeTime--;
      // win reset
     if (pagesFound >= 8) { // win mechnic 
-        alert("YOU WON!");
+        endScreen = "win"; // our new win screen 
         pagesFound = 0; 
         gameStarted = false;
         player.x = 50; 
@@ -199,15 +206,33 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!gameStarted) { // menu
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
-        ctx.font = "60px Arial";
-        ctx.fillText("Slender Man Game", canvas.width / 2, canvas.height / 2 - 100);
-        ctx.font = "20px Arial";
-        ctx.fillText("by Bahaa", canvas.width / 2, canvas.height / 2 - 60);
-        ctx.font = "30px Arial";
-        ctx.fillText("Press 'H' for Horror Mode", canvas.width / 2, canvas.height / 2 + 20);
-        ctx.fillText("Press 'A' for Action Mode", canvas.width / 2, canvas.height / 2 + 70);
+        if (endScreen === "gameover") {
+            ctx.fillStyle = "red";
+            ctx.textAlign = "center";
+            ctx.font = "60px Arial";
+            ctx.fillText("SLENDER MAN CAUGHT YOU!!", canvas.width / 2, canvas.height / 2 - 20);
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText("Press any key to return to menu", canvas.width / 2, canvas.height / 2 + 30);
+        } else if (endScreen === "win") {
+            ctx.fillStyle = "lime";
+            ctx.textAlign = "center";
+            ctx.font = "60px Arial";
+            ctx.fillText("YOU WON!", canvas.width / 2, canvas.height / 2 - 20);
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText("Press any key to return to menu", canvas.width / 2, canvas.height / 2 + 30);
+        } else {
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.font = "60px Arial";
+            ctx.fillText("Slender Man Game", canvas.width / 2, canvas.height / 2 - 100);
+            ctx.font = "20px Arial";
+            ctx.fillText("by Bahaa", canvas.width / 2, canvas.height / 2 - 60);
+            ctx.font = "30px Arial";
+            ctx.fillText("Press 'H' for Horror Mode", canvas.width / 2, canvas.height / 2 + 20);
+            ctx.fillText("Press 'A' for Action Mode", canvas.width / 2, canvas.height / 2 + 70);
+        }
     } else {
         ctx.textAlign = "left";
         ctx.fillStyle = stalker.color;
