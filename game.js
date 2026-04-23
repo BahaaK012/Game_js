@@ -4,7 +4,23 @@ const bullets = [];
 const bulletSpeed = 10;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
-//game didnt start yet 
+
+const slenderImg = new Image();
+slenderImg.src = 'New Piskel.png'; 
+
+const treeImg = new Image();
+treeImg.src = 'dead_tree-001.png';
+
+const obstacles = [
+    { x: 300, y: 200, w: 60, h: 120 },
+    { x: 150, y: 400, w: 60, h: 120 },
+    { x: 600, y: 150, w: 60, h: 120 },
+    { x: 800, y: 500, w: 60, h: 120 },
+    { x: 200, y: 600, w: 60, h: 120 },
+    { x: 700, y: 50, w: 60, h: 120 },
+    { x: 450, y: 350, w: 60, h: 120 }
+];
+
 let gameStarted = false;
 let gameMode = "";
 let endScreen = "";
@@ -37,7 +53,7 @@ const player = {
 const stalker = {
     x: 500,
     y: 500,
-    size: 30,
+    size: 40,
     speed: 2,
     color: "red"
 };
@@ -123,9 +139,29 @@ function update() {
     if (keys['arrowdown'] || keys['s']) nextY += currentSpeed;
     if (keys['arrowleft'] || keys['a']) nextX -= currentSpeed;
     if (keys['arrowright'] || keys['d']) nextX += currentSpeed;
-    // prevent going outside screen
-    if (nextX >= 0 && nextX + player.size <= canvas.width) player.x = nextX;
-    if (nextY >= 0 && nextY + player.size <= canvas.height) player.y = nextY;
+
+    // collisions with objects
+    let canMoveX = true;
+    let canMoveY = true;
+
+    obstacles.forEach(t => {
+        if (nextX < t.x + t.w && nextX + player.size > t.x &&
+            player.y < t.y + t.h && player.y + player.size > t.y) {
+            canMoveX = false;
+        }
+
+        if (player.x < t.x + t.w && player.x + player.size > t.x &&
+            nextY < t.y + t.h && nextY + player.size > t.y) {
+            canMoveY = false;
+        }
+    });
+
+    if (canMoveX && nextX >= 0 && nextX + player.size <= canvas.width) {
+        player.x = nextX;
+    }
+    if (canMoveY && nextY >= 0 && nextY + player.size <= canvas.height) {
+        player.y = nextY;
+    }
 
     // stalker
     if (stalker.x < player.x) stalker.x += stalker.speed;
@@ -151,6 +187,20 @@ function update() {
     // loop through bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
         bullets[i].x += bulletSpeed; // move it forward
+        // bullet tree logic
+        let bulletHitTree = false;
+        obstacles.forEach(t => {
+            if (bullets[i].x < t.x + t.w && bullets[i].x + bullets[i].size > t.x &&
+                bullets[i].y < t.y + t.h && bullets[i].y + bullets[i].size > t.y) {
+                bulletHitTree = true;
+            }
+        });
+
+        if (bulletHitTree) {
+            bullets.splice(i, 1);
+            continue; // Bullet is gone, skip to next bullet
+        }
+
         if (bullets[i].x > canvas.width) { bullets.splice(i, 1); continue; } // here we actully do want the bullet to go off screen
         if (// if it will hit 
             bullets[i].x < stalker.x + stalker.size &&
@@ -235,8 +285,14 @@ function draw() {
         }
     } else {
         ctx.textAlign = "left";
+
+        // Trees drawn BEFORE the flashlight overlay
+        obstacles.forEach(t => {
+            ctx.drawImage(treeImg, t.x, t.y, t.w, t.h);
+        });
+
         ctx.fillStyle = stalker.color;
-        ctx.fillRect(stalker.x, stalker.y, stalker.size, stalker.size);
+        ctx.drawImage(slenderImg, stalker.x, stalker.y, stalker.size, stalker.size);
         // for action mode differnt a little
         ctx.fillStyle = (gameMode === "action") ? "cyan" : "white";
         ctx.fillRect(player.x, player.y, player.size, player.size);
