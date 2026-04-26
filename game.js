@@ -8,17 +8,36 @@ canvas.height = window.innerHeight;
 const slenderImg = new Image();
 slenderImg.src = 'New Piskel.png'; 
 
+const playerImg = new Image();
+playerImg.src = 'New Piskel (7).png'; 
+
 const treeImg = new Image();
 treeImg.src = 'dead_tree-001.png';
 
+const tree2Img = new Image();
+tree2Img.src = 'tree_10 (1).png';
+
+const groundImg = new Image();
+groundImg.src = 'map.png';
+
+const bushImg = new Image();
+bushImg.src = 'drawing_1_0.png';
+
 const obstacles = [
-    { x: 300, y: 200, w: 60, h: 120 },
-    { x: 150, y: 400, w: 60, h: 120 },
-    { x: 600, y: 150, w: 60, h: 120 },
-    { x: 800, y: 500, w: 60, h: 120 },
-    { x: 200, y: 600, w: 60, h: 120 },
-    { x: 700, y: 50, w: 60, h: 120 },
-    { x: 450, y: 350, w: 60, h: 120 }
+    { img: treeImg, x: 300, y: 200, w: 60, h: 120 },
+    { img: treeImg, x: 150, y: 400, w: 60, h: 120 },
+    { img: treeImg, x: 600, y: 150, w: 60, h: 120 },
+    { img: treeImg, x: 800, y: 500, w: 60, h: 120 },
+    { img: treeImg, x: 200, y: 600, w: 60, h: 120 },
+    { img: treeImg, x: 700, y: 50, w: 60, h: 120 },
+    { img: treeImg, x: 450, y: 350, w: 60, h: 120 },
+    { img: bushImg, x: 100, y: 100, w: 60, h: 40 },
+    { img: bushImg, x: 550, y: 300, w: 60, h: 40 },
+    { img: bushImg, x: 800, y: 150, w: 60, h: 40 },
+    { img: bushImg, x: 250, y: 500, w: 60, h: 40 },
+    { img: tree2Img, x: 50, y: 250, w: 60, h: 120 },
+    { img: tree2Img, x: 650, y: 400, w: 60, h: 120 },
+    { img: tree2Img, x: 350, y: 550, w: 60, h: 120 }
 ];
 
 let gameStarted = false;
@@ -46,8 +65,8 @@ const page = {
 const player = {
     x: 50,
     y: 50,
-    size: 20,
-    speed: 5
+    size: 40, 
+    speed: 0.3
 };
 
 const stalker = {
@@ -164,53 +183,60 @@ function update() {
     }
 
     // stalker
-    if (stalker.x < player.x) stalker.x += stalker.speed;
-    if (stalker.x > player.x) stalker.x -= stalker.speed;
-    if (stalker.y < player.y) stalker.y += stalker.speed;
-    if (stalker.y > player.y) stalker.y -= stalker.speed;
+    if (pagesFound > 0) {
+        if (stalker.x < player.x) stalker.x += stalker.speed;
+        if (stalker.x > player.x) stalker.x -= stalker.speed;
+        if (stalker.y < player.y) stalker.y += stalker.speed;
+        if (stalker.y > player.y) stalker.y -= stalker.speed;
 
-    if ( // collision 
-        player.x < stalker.x + stalker.size &&
-        player.x + player.size > stalker.x &&
-        player.y < stalker.y + stalker.size &&
-        player.y + player.size > stalker.y
-    ) { // reset when loss
-       endScreen = "gameover"; // our new endscnree
-        for (let key in keys) { keys[key] = false; }
-        player.x = 50; player.y = 50;
-        stalker.x = 500; stalker.y = 500;
-        pagesFound = 0; stamina = 100;
-        isSprinting = false;
-        shakeTime = 0;
-        gameStarted = false;
+        if ( // collision 
+            player.x < stalker.x + stalker.size &&
+            player.x + player.size > stalker.x &&
+            player.y < stalker.y + stalker.size &&
+            player.y + player.size > stalker.y
+        ) { // reset when loss
+           endScreen = "gameover"; // our new endscnree
+            for (let key in keys) { keys[key] = false; }
+            player.x = 50; player.y = 50;
+            stalker.x = 500; stalker.y = 500;
+            pagesFound = 0; stamina = 100;
+            isSprinting = false;
+            shakeTime = 0;
+            gameStarted = false;
+        }
     }
+
     // loop through bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
         bullets[i].x += bulletSpeed; // move it forward
-        // bullet tree logic
-        let bulletHitTree = false;
+        
+        // bullet obstacle logic
+        let bulletHitObstacle = false;
         obstacles.forEach(t => {
             if (bullets[i].x < t.x + t.w && bullets[i].x + bullets[i].size > t.x &&
                 bullets[i].y < t.y + t.h && bullets[i].y + bullets[i].size > t.y) {
-                bulletHitTree = true;
+                bulletHitObstacle = true;
             }
         });
 
-        if (bulletHitTree) {
+        if (bulletHitObstacle) {
             bullets.splice(i, 1);
             continue; // Bullet is gone, skip to next bullet
         }
-
+        
         if (bullets[i].x > canvas.width) { bullets.splice(i, 1); continue; } // here we actully do want the bullet to go off screen
-        if (// if it will hit 
-            bullets[i].x < stalker.x + stalker.size &&
-            bullets[i].x + bullets[i].size > stalker.x &&
-            bullets[i].y < stalker.y + stalker.size &&
-            bullets[i].y + bullets[i].size > stalker.y
-        ) {
-            stalker.x = Math.random() * (canvas.width - 50); // gets teleported
-            stalker.y = Math.random() * (canvas.height - 50);
-            bullets.splice(i, 1);
+        
+        if (pagesFound > 0) {
+            if (// if it will hit 
+                bullets[i].x < stalker.x + stalker.size &&
+                bullets[i].x + bullets[i].size > stalker.x &&
+                bullets[i].y < stalker.y + stalker.size &&
+                bullets[i].y + bullets[i].size > stalker.y
+            ) {
+                stalker.x = Math.random() * (canvas.width - 50); // gets teleported
+                stalker.y = Math.random() * (canvas.height - 50);
+                bullets.splice(i, 1);
+            }
         }
     }
 
@@ -220,18 +246,34 @@ function update() {
         player.y < page.y + page.size &&
         player.y + player.size > page.y
     ) {
-        pagesFound++; // Increase counter 
+        pagesFound++; 
+
+        if (pagesFound === 1) {
+            let distance = 0;
+            while (distance < 400) {
+                stalker.x = Math.random() * (canvas.width - stalker.size);
+                stalker.y = Math.random() * (canvas.height - stalker.size);
+                let dx = player.x - stalker.x;
+                let dy = player.y - stalker.y;
+                distance = Math.sqrt(dx * dx + dy * dy);
+            }
+        }
+
         page.x = Math.random() * (canvas.width - 30) + 15; // teleported for random place
         page.y = Math.random() * (canvas.height - 30) + 15; 
         stalker.speed += 0.2; // buff for slender
     }
-    let dx = player.x - stalker.x;
-    let dy= player.y - stalker.y;
-    let distance = Math.sqrt(dx *dx + dy *dy);
 
-    if (gameMode === "horror" && distance < 150){
-        shakeTime = 5; // shake effect 
+    if (pagesFound > 0) {
+        let dx = player.x - stalker.x;
+        let dy= player.y - stalker.y;
+        let distance = Math.sqrt(dx *dx + dy *dy);
+
+        if (gameMode === "horror" && distance < 150){
+            shakeTime = 5; // shake effect 
+        }
     }
+
     if (shakeTime > 0) shakeTime--;
      // win reset
     if (pagesFound >= 8) { // win mechnic 
@@ -241,12 +283,14 @@ function update() {
         player.x = 50; 
         player.y = 50;
         isSprinting = false;
-        shakeTime =0;
+        shakeTime = 0;
     }
 }
 
 function draw() {
     ctx.save();
+    
+    // Screen shake logic
     if (shakeTime > 0) {
         let shakeX = (Math.random() - 0.5) * 10;
         let shakeY = (Math.random() - 0.5) * 10;
@@ -254,6 +298,21 @@ function draw() {
     }
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Safety check for Background Pattern
+    try {
+        if (groundImg.complete && groundImg.width > 0) {
+            const pattern = ctx.createPattern(groundImg, 'repeat');
+            ctx.fillStyle = pattern;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = "black"; // Fallback color so you can still see to play
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    } catch (e) {
+        ctx.fillStyle = "#002200"; // Second fallback
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     if (!gameStarted) { // menu
         if (endScreen === "gameover") {
@@ -286,33 +345,45 @@ function draw() {
     } else {
         ctx.textAlign = "left";
 
-        // Trees drawn BEFORE the flashlight overlay
+        // Draw Obstacles with safety check
         obstacles.forEach(t => {
-            ctx.drawImage(treeImg, t.x, t.y, t.w, t.h);
+            if (t.img.complete && t.img.width > 0) {
+                ctx.drawImage(t.img, t.x, t.y, t.w, t.h);
+            }
         });
 
-        ctx.fillStyle = stalker.color;
-        ctx.drawImage(slenderImg, stalker.x, stalker.y, stalker.size, stalker.size);
-        // for action mode differnt a little
-        ctx.fillStyle = (gameMode === "action") ? "cyan" : "white";
-        ctx.fillRect(player.x, player.y, player.size, player.size);
-       // bullets color 
+        // Draw Stalker with safety check
+        if (pagesFound > 0 && slenderImg.complete && slenderImg.width > 0) {
+            ctx.drawImage(slenderImg, stalker.x, stalker.y, stalker.size, stalker.size);
+        }
+
+        // Draw Player with safety check
+        if (playerImg.complete && playerImg.width > 0) {
+            ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+        } else {
+            ctx.fillStyle = (gameMode === "action") ? "cyan" : "white";
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+        }
+
+        // Bullets
         ctx.fillStyle = 'yellow';
         bullets.forEach(bullet => { ctx.fillRect(bullet.x, bullet.y, bullet.size, bullet.size); });
        
         ctx.fillStyle = page.color; 
         ctx.fillRect(page.x, page.y, page.size, page.size);
-         // for horror 
+
+        // Horror Mode Flashlight
         if (gameMode === "horror") {
             ctx.save();
             ctx.beginPath();
-            ctx.rect(0, 0, canvas.width, canvas.height); // next line we will creat a circle to simluate a flashlight
+            ctx.rect(0, 0, canvas.width, canvas.height); 
             ctx.arc(player.x + player.size / 2, player.y + player.size / 2, 150, 0, Math.PI * 2, true);
-            ctx.fillStyle = "black"; // everything else will become black
+            ctx.fillStyle = "black"; 
             ctx.fill();
             ctx.restore();
         }
-       // ui 
+
+        // UI
         ctx.fillStyle = "white";
         ctx.font = "15px Arial";
         ctx.fillText("Mode: " + gameMode.toUpperCase(), 20, 30);
