@@ -5,6 +5,12 @@ const bulletSpeed = 10;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+const mouse = { x:0, y: 0}; // pointer for the mouse 
+window.addEventListener('mousemove', (e)=> {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+
 const slenderImg = new Image();
 slenderImg.src = 'New Piskel.png'; 
 
@@ -20,9 +26,6 @@ tree2Img.src = 'tree_10 (1).png';
 const groundImg = new Image();
 groundImg.src = 'map.png';
 
-const bushImg = new Image();
-bushImg.src = 'drawing_1_0.png';
-
 const obstacles = [
     { img: treeImg, x: 300, y: 200, w: 60, h: 120 },
     { img: treeImg, x: 150, y: 400, w: 60, h: 120 },
@@ -31,10 +34,6 @@ const obstacles = [
     { img: treeImg, x: 200, y: 600, w: 60, h: 120 },
     { img: treeImg, x: 700, y: 50, w: 60, h: 120 },
     { img: treeImg, x: 450, y: 350, w: 60, h: 120 },
-    { img: bushImg, x: 100, y: 100, w: 60, h: 40 },
-    { img: bushImg, x: 550, y: 300, w: 60, h: 40 },
-    { img: bushImg, x: 800, y: 150, w: 60, h: 40 },
-    { img: bushImg, x: 250, y: 500, w: 60, h: 40 },
     { img: tree2Img, x: 50, y: 250, w: 60, h: 120 },
     { img: tree2Img, x: 650, y: 400, w: 60, h: 120 },
     { img: tree2Img, x: 350, y: 550, w: 60, h: 120 }
@@ -66,7 +65,7 @@ const player = {
     x: 50,
     y: 50,
     size: 40, 
-    speed: 0.3
+    speed: 5
 };
 
 const stalker = {
@@ -74,7 +73,14 @@ const stalker = {
     y: 500,
     size: 40,
     speed: 2,
-    color: "red"
+    color: "red", 
+    killTimer: 0,
+    teleportTimer: 0,
+    phases: {
+        1: { teleportCooldown: 180, killDistance: 80 },  // Pages 1-2
+        2: { teleportCooldown: 120, killDistance: 110 }, // Pages 3-5
+        3: { teleportCooldown: 60,  killDistance: 150 }  // Pages 6-7
+    }
 };
 // keys
 const keys = {};
@@ -184,25 +190,98 @@ function update() {
 
     // stalker
     if (pagesFound > 0) {
-        if (stalker.x < player.x) stalker.x += stalker.speed;
-        if (stalker.x > player.x) stalker.x -= stalker.speed;
-        if (stalker.y < player.y) stalker.y += stalker.speed;
-        if (stalker.y > player.y) stalker.y -= stalker.speed;
+        if (gameMode === "horror") {
+            
+            let currentPhase = 1;
+            if (pagesFound >= 6) currentPhase = 3;
+            else if (pagesFound >= 3) currentPhase = 2;
 
-        if ( // collision 
-            player.x < stalker.x + stalker.size &&
-            player.x + player.size > stalker.x &&
-            player.y < stalker.y + stalker.size &&
-            player.y + player.size > stalker.y
-        ) { // reset when loss
-           endScreen = "gameover"; // our new endscnree
-            for (let key in keys) { keys[key] = false; }
-            player.x = 50; player.y = 50;
-            stalker.x = 500; stalker.y = 500;
-            pagesFound = 0; stamina = 100;
-            isSprinting = false;
-            shakeTime = 0;
-            gameStarted = false;
+            let stats = stalker.phases[currentPhase];
+            // Calculate from CENTERS so the math is perfectly accurate
+            let pCenterX = player.x + player.size / 2;
+            let pCenterY = player.y + player.size / 2;
+            let sCenterX = stalker.x + stalker.size / 2;
+            let sCenterY = stalker.y + stalker.size / 2;
+
+            // Reversed dx and dy so it points FROM player TO stalker
+            let dx = sCenterX - pCenterX; 
+            let dy = sCenterY - pCenterY; 
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // check if the flash is on slender 
+            let angleToStalker = Math.atan2(dy, dx);
+            let mouseAngle = Math.atan2(mouse.y - pCenterY, mouse.x - pCenterX);
+            let angleDiff = Math.abs(angleToStalker - mouseAngle);
+            
+            // normlize 
+            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+            
+            // if he on light
+            let isBeingWatched = (distance < 450 && angleDiff < 0.4);
+
+            if (!isBeingWatched) {
+                stalker.teleportTimer++; 
+                if (stalker.teleportTimer > stats.teleportCooldown){
+                    // Pick a spot closer to player
+                    stalker.x = player.x + (Math.random() - 0.5) * 400;
+                    stalker.y = player.y + (Math.random() - 0.5) * 400;
+                    stalker.teleportTimer = 0;
+                }
+            } else {
+                // when watching his timer will be not working
+                stalker.teleportTimer = 0;
+            }
+
+            // kill mechanic
+            if (distance < stats.killDistance){
+                stalker.killTimer++; 
+                shakeTime = 10;
+                if (stalker.killTimer > 120) { 
+                    endScreen = "gameover";
+                    for (let key in keys) { keys[key] = false; }
+                    player.x = 50; player.y = 50;
+                    stalker.x = 500; stalker.y = 500;
+                    pagesFound = 0; stamina = 100;
+                    isSprinting = false;
+                    shakeTime = 0;
+                    stalker.killTimer = 0; 
+                    stalker.teleportTimer = 0; 
+                    gameStarted = false;
+                    return; 
+                }
+            } else {
+                 
+                stalker.killTimer = Math.max(0, stalker.killTimer - 1); 
+            }
+
+            if (distance < 150){
+                shakeTime = 5; // shake effect 
+            }
+        } else {
+            // Action Mode movement logic
+            if (stalker.x < player.x) stalker.x += stalker.speed;
+            if (stalker.x > player.x) stalker.x -= stalker.speed;
+            if (stalker.y < player.y) stalker.y += stalker.speed;
+            if (stalker.y > player.y) stalker.y -= stalker.speed;
+
+            if ( 
+                player.x < stalker.x + stalker.size &&
+                player.x + player.size > stalker.x &&
+                player.y < stalker.y + stalker.size &&
+                player.y + player.size > stalker.y
+            ) { 
+                endScreen = "gameover";
+                for (let key in keys) { keys[key] = false; }
+                player.x = 50; player.y = 50;
+                stalker.x = 500; stalker.y = 500;
+                pagesFound = 0; stamina = 100;
+                isSprinting = false;
+                shakeTime = 0;
+                stalker.killTimer = 0; // Fixes red screen bug
+                stalker.teleportTimer = 0; // Fixes instant teleport bug
+                gameStarted = false;
+                return;
+            }
         }
     }
 
@@ -261,17 +340,7 @@ function update() {
 
         page.x = Math.random() * (canvas.width - 30) + 15; // teleported for random place
         page.y = Math.random() * (canvas.height - 30) + 15; 
-        stalker.speed += 0.2; // buff for slender
-    }
-
-    if (pagesFound > 0) {
-        let dx = player.x - stalker.x;
-        let dy= player.y - stalker.y;
-        let distance = Math.sqrt(dx *dx + dy *dy);
-
-        if (gameMode === "horror" && distance < 150){
-            shakeTime = 5; // shake effect 
-        }
+        stalker.speed += 0.2; // buff for slender     
     }
 
     if (shakeTime > 0) shakeTime--;
@@ -282,10 +351,14 @@ function update() {
         gameStarted = false;
         player.x = 50; 
         player.y = 50;
+        stalker.x = 500; stalker.y = 500;
         isSprinting = false;
         shakeTime = 0;
+        stalker.killTimer = 0; // Fixes red screen that keeps happening
+        stalker.teleportTimer = 0; // Fixes instant teleport bug
     }
 }
+
 
 function draw() {
     ctx.save();
@@ -372,15 +445,58 @@ function draw() {
         ctx.fillStyle = page.color; 
         ctx.fillRect(page.x, page.y, page.size, page.size);
 
-        // Horror Mode Flashlight
         if (gameMode === "horror") {
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(0, 0, canvas.width, canvas.height); 
-            ctx.arc(player.x + player.size / 2, player.y + player.size / 2, 150, 0, Math.PI * 2, true);
-            ctx.fillStyle = "black"; 
-            ctx.fill();
-            ctx.restore();
+            // Create an off screen canvas for the darkness overlay
+            const darkCanvas = document.createElement("canvas");
+            darkCanvas.width = canvas.width;
+            darkCanvas.height = canvas.height;
+            const darkCtx = darkCanvas.getContext("2d");
+
+            // fill it with darkness 
+            darkCtx.fillStyle = "rgb(0, 0, 10)";
+            darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
+
+            // now the drawing will act as an eraser
+            darkCtx.globalCompositeOperation = "destination-out";
+
+            const centerX = player.x + player.size / 2;
+            const centerY = player.y + player.size / 2;
+            const angle = Math.atan2(mouse.y - centerY, mouse.x - centerX);
+
+            // soft edges for the lighting
+            const glowGradient = darkCtx.createRadialGradient(
+                centerX, centerY, 30,
+                centerX, centerY, 70
+            );
+            glowGradient.addColorStop(0, "rgba(0, 0, 0, 1)");
+            glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+            darkCtx.fillStyle = glowGradient;
+            darkCtx.beginPath();
+            darkCtx.arc(centerX, centerY, 70, 0, Math.PI * 2);
+            darkCtx.fill();
+
+            // erase the beam cone
+            const beamGradient = darkCtx.createRadialGradient(
+                centerX, centerY, 0,
+                centerX, centerY, 450
+            );
+            beamGradient.addColorStop(0, "rgba(0, 0, 0, 1)");
+            beamGradient.addColorStop(0.7, "rgba(0, 0, 0, 0.8)");
+            beamGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+            darkCtx.fillStyle = beamGradient;
+            darkCtx.beginPath();
+            darkCtx.moveTo(centerX, centerY);
+            darkCtx.arc(centerX, centerY, 450, angle - 0.4, angle + 0.4);
+            darkCtx.lineTo(centerX, centerY);
+            darkCtx.fill();
+
+            
+            ctx.drawImage(darkCanvas, 0, 0);
+        }
+
+        if (gameMode === "horror" && stalker.killTimer > 0) {
+            ctx.fillStyle = `rgba(255, 0, 0, ${stalker.killTimer / 240})`; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
         // UI
