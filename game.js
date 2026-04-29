@@ -90,6 +90,8 @@ const stalker = {
     color: "red", 
     killTimer: 0,
     teleportTimer: 0,
+    reactionBuffer: 0, 
+    staticTimer: 0, //Timer for the teleport status effect 
     phases: {
         1: { teleportCooldown: 180, killDistance: 80 },  // Pages 1-2
         2: { teleportCooldown: 120, killDistance: 110 }, // Pages 3-5
@@ -238,9 +240,10 @@ function update() {
             // normalize
             if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
             // if he is on light
-            let isBeingWatched = (distance < 450 && angleDiff < 0.4);
+            let isBeingWatched = (distance < 500 && angleDiff < 0.5); 
 
             if (!isBeingWatched) {
+                stalker.reactionBuffer = 0; 
                 stalker.teleportTimer++; 
                 if (stalker.teleportTimer > stats.teleportCooldown){
                     // Teleport inside borders (this is not really working)
@@ -249,9 +252,13 @@ function update() {
                     stalker.x = Math.max(BORDER_SIZE, Math.min(tx, WORLD_WIDTH - BORDER_SIZE));
                     stalker.y = Math.max(BORDER_SIZE, Math.min(ty, WORLD_HEIGHT - BORDER_SIZE));
                     stalker.teleportTimer = 0;
+                    stalker.staticTimer = 15; // Trigger static on teleport
                 }
             } else {
-                stalker.teleportTimer = 0; // when watched his timer be reseted
+                stalker.reactionBuffer++;
+                if (stalker.reactionBuffer > 5) { 
+                    stalker.teleportTimer = 0; // when watched his timer be reseted
+                }
             }
              // kill mechanic 
             if (distance < stats.killDistance){
@@ -267,6 +274,7 @@ function update() {
                     shakeTime = 0;
                     stalker.killTimer = 0; 
                     stalker.teleportTimer = 0; 
+                    stalker.staticTimer = 0;
                     gameStarted = false;
                     return; 
                 }
@@ -297,6 +305,7 @@ function update() {
                 shakeTime = 0;
                 stalker.killTimer = 0; 
                 stalker.teleportTimer = 0; 
+                stalker.staticTimer = 0;
                 gameStarted = false;
                 return;
             }
@@ -326,6 +335,7 @@ function update() {
             ) {
                 stalker.x = Math.random() * (WORLD_WIDTH - 100) + 50; // gets teleported
                 stalker.y = Math.random() * (WORLD_HEIGHT - 100) + 50;
+                stalker.staticTimer = 10; // Smaller static on bullet hit
                 bullets.splice(i, 1);
             }
         }
@@ -354,6 +364,8 @@ function update() {
     }
 
     if (shakeTime > 0) shakeTime--;
+    if (stalker.staticTimer > 0) stalker.staticTimer--;
+
     // win reset logic 
     if (pagesFound >= 8) {
         endScreen = "win";
@@ -362,7 +374,7 @@ function update() {
         player.x = WORLD_WIDTH / 2; player.y = WORLD_HEIGHT / 2;
         stalker.x = 500; stalker.y = 500;
         isSprinting = false; shakeTime = 0;
-        stalker.killTimer = 0; stalker.teleportTimer = 0; 
+        stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
     }
 }
 
@@ -480,6 +492,18 @@ function draw() {
         darkCtx.fill();
 
         ctx.drawImage(darkCanvas, 0, 0);
+    }
+
+    // static effect 
+    if (gameStarted && stalker.staticTimer > 0) {
+        // Draw random noisy pixels
+        for (let i = 0; i < 5000; i++) { // I guess this is such a retarted way of doing it 
+            let x = Math.random() * canvas.width;
+            let y = Math.random() * canvas.height;
+            let gray = Math.random() * 255;
+            ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, 0.4)`;
+            ctx.fillRect(x, y, 2, 2);
+        }
     }
 
   // UI and Menu
