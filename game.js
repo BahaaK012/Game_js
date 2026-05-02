@@ -11,8 +11,15 @@ window.addEventListener('mousemove', (e)=> {
     mouse.y = e.clientY;
   });
 
+  // shooting lisnter for action mode 
+  window.addEventListener('mousedown', (e) => {
+    if (gameStarted && gameMode === "action") {
+        shootBullet();
+    }
+});
+
 const slenderImg = new Image();
-slenderImg.src = 'New Piskel.png'; 
+slenderImg.src = 'slender_new.png'; // 
 
 const playerImg = new Image();
 playerImg.src = 'New Piskel (7).png'; // Still frame
@@ -85,7 +92,7 @@ const player = {
 const stalker = {
     x: 500,
     y: 500,
-    size: 40,
+    size: 80, // NEW: Increased size to 80 to match high-res sprite detail
     speed: 2,
     color: "red", 
     killTimer: 0,
@@ -117,12 +124,7 @@ window.addEventListener('keydown', (e) => {
     }
     // shooting for action mode
     if (e.code === 'Space' && gameStarted && gameMode === "action") {
-        shakeTime = 10; // shake effect 
-        bullets.push({
-            x: player.x + player.size / 2, // created at player postion
-            y: player.y + player.size / 2,
-            size: 5
-        }); 
+        shootBullet();
     }
       // to adjust which mode player will select 
     if (!gameStarted) {
@@ -145,6 +147,25 @@ window.addEventListener('keyup', (e) => {
  // same issue of keys getting stuck while sprinting
     keys[e.key.toLowerCase()] = false;
 });
+
+// helper fucntion for bullets shooting aim 
+function shootBullet() {
+    shakeTime = 10; 
+    
+    // We need to calculate the angle from the center of the screen (where the player is)
+    // to the mouse position.
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const angle = Math.atan2(mouse.y - centerY, mouse.x - centerX);
+
+    bullets.push({
+        x: player.x + player.size / 2, 
+        y: player.y + player.size / 2,
+        vx: Math.cos(angle) * bulletSpeed,
+        vy: Math.sin(angle) * bulletSpeed,
+        size: 5
+    }); 
+}
 
 function update() {
     if (!gameStarted) return;
@@ -235,7 +256,7 @@ function update() {
             let distance = Math.sqrt(dx * dx + dy * dy);
             // to check if slender is under the light 
             let angleToStalker = Math.atan2(dy, dx);
-            let mouseAngle = Math.atan2(mouse.y - pCenterY, mouse.x - pCenterX);
+            let mouseAngle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
             let angleDiff = Math.abs(angleToStalker - mouseAngle);
             // normalize
             if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
@@ -314,7 +335,9 @@ function update() {
 
     // loop through bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
-        bullets[i].x += bulletSpeed;
+        bullets[i].x += bullets[i].vx;
+        bullets[i].y += bullets[i].vy;
+
         let bulletHitObstacle = false;
         obstacles.forEach(t => {
             if (bullets[i].x < t.x + t.w && bullets[i].x + bullets[i].size > t.x &&
@@ -324,7 +347,11 @@ function update() {
         });
         if (bulletHitObstacle) { bullets.splice(i, 1); continue; }  // continue was important if bullet is gone contine to next one
         // Bullet hits world border
-        if (bullets[i].x > WORLD_WIDTH - BORDER_SIZE) { bullets.splice(i, 1); continue; }
+        if (bullets[i].x < BORDER_SIZE || bullets[i].x > WORLD_WIDTH - BORDER_SIZE ||
+            bullets[i].y < BORDER_SIZE || bullets[i].y > WORLD_HEIGHT - BORDER_SIZE) { 
+            bullets.splice(i, 1); 
+            continue; 
+        }
         
         if (pagesFound > 0) {
             if ( // if the bullet will hit
@@ -497,7 +524,7 @@ function draw() {
     // static effect 
     if (gameStarted && stalker.staticTimer > 0) {
         // Draw random noisy pixels
-        for (let i = 0; i < 5000; i++) { // I guess this is such a retarted way of doing it 
+        for (let i = 0; i < 5000; i++) { 
             let x = Math.random() * canvas.width;
             let y = Math.random() * canvas.height;
             let gray = Math.random() * 255;
