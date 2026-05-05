@@ -127,6 +127,10 @@ let gameStarted = false;
 let gameMode = "";
 let endScreen = "";
 
+// Player Health & Ammo Systems
+let playerHealth = 100;
+let ammo = 6; 
+
 // stamina
 let stamina = 100;
 let isSprinting = false; 
@@ -173,6 +177,9 @@ const stalker = {
     teleportTimer: 0,
     reactionBuffer: 0, 
     staticTimer: 0, 
+    // New Action Mode variables
+    actionTeleportTimer: 0, 
+    stunTimer: 0,
     phases: {
         1: { teleportCooldown: 180, killDistance: 80 }, 
         2: { teleportCooldown: 120, killDistance: 110 },
@@ -204,7 +211,6 @@ window.addEventListener('keydown', (e) => {
         if (e.key.toLowerCase() === 'a') {
             gameMode = "action";
             player.speed = 7;
-            stalker.speed = 2.2; // Slightly faster to make up for smart pathing
             gameStarted = true;
         }
     }
@@ -215,6 +221,9 @@ window.addEventListener('keyup', (e) => {
 });
 
 function shootBullet() {
+    if (ammo <= 0) return; // Prevent shooting if no ammo
+    ammo--;
+    
     shakeTime = 10; 
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
@@ -228,17 +237,18 @@ function shootBullet() {
         size: 5
     }); 
 }
-// teleport function (IT IS NOT WORKING WELL AND IT SO ANNOYING)
+
+// Helper to spawn Stalker safely without getting trapped in a wall
 function teleportStalkerSafely(isCloseToPlayer = false) {
-    let validSpot = false; // check if the place is found 
+    let validSpot = false; 
     let tx, ty;
     let attempts = 0;
     while (!validSpot && attempts < 100) { // in casw we wont found it doesewnt fall into infinite loop 
         if (isCloseToPlayer) {
-            tx = player.x + (Math.random() - 0.5) * 1500; // generate random x around the player
-            ty = player.y + (Math.random() - 0.5) * 1500; // same but for y 
+            tx = player.x + (Math.random() - 0.5) * 800; // generate closer x around the player for strikes
+            ty = player.y + (Math.random() - 0.5) * 800; 
         } else { // if the teleport is not near player 
-            tx = Math.random() * (WORLD_WIDTH - 100) + 50; // fun fact the + 50 is to aviode the world border but he is NOT ACTULLY AVOIDNG THEM
+            tx = Math.random() * (WORLD_WIDTH - 100) + 50; 
             ty = Math.random() * (WORLD_HEIGHT - 100) + 50;
         }
         // CHECK border size with map size
@@ -368,11 +378,8 @@ function update() {
                     player.x = WORLD_WIDTH / 2; player.y = WORLD_HEIGHT / 2;
                     teleportStalkerSafely(false);
                     pagesFound = 0; stamina = 100;
-                    isSprinting = false;
-                    shakeTime = 0;
-                    stalker.killTimer = 0; 
-                    stalker.teleportTimer = 0; 
-                    stalker.staticTimer = 0;
+                    isSprinting = false; shakeTime = 0;
+                    stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
                     gameStarted = false;
                     return; 
                 }
@@ -382,85 +389,40 @@ function update() {
 
             if (distance < 150) shakeTime = 5; 
         } else {
-        
-         // waypoint system for slender to detect the wall
-         // it is not actully working 
-            let target = { x: player.x, y: player.y };
-
-            // x y w h represent the outer boundaries of the building 
-            // dx dy are the safe coordinates just outside the entrance
-            const buildings = [
-                { x: 1180, y: 280, w: 840, h: 680, dx: 1600, dy: 960 }, // House
-                { x: 3480, y: 1980, w: 840, h: 840, dx: 3900, dy: 2820 }, // Warehouse
-                { x: 580, y: 2980, w: 540, h: 440, dx: 830, dy: 3420 } // Shed
-            ]; // I need to teah this idiot what a shed looks like so he doesnt get stuck
-
-            let pCenter = { x: player.x + player.size/2, y: player.y + player.size/2 };
-            let sCenter = { x: stalker.x + stalker.size/2, y: stalker.y + stalker.size/2 };
-
-            for (let b of buildings) {
-                let pIn = (pCenter.x > b.x && pCenter.x < b.x + b.w && pCenter.y > b.y && pCenter.y < b.y + b.h);
-                let sIn = (sCenter.x > b.x && sCenter.x < b.x + b.w && sCenter.y > b.y && sCenter.y < b.y + b.h);
+            // new mechanic for action mode teleport 
+            if (stalker.stunTimer > 0) {
+                stalker.stunTimer--; // recovering from a gunshot
+            } else {
+                stalker.actionTeleportTimer++;
                 
-                // if one is inside and one is outside, Stalker routes to the door first!
-                if (pIn && !sIn) {
-                    target.x = b.dx; target.y = b.dy; break;
-                } else if (sIn && !pIn) {
-                    target.x = b.dx; target.y = b.dy; break;
-                }
-            }
-
-           // smooth sliding 
-            let dx = target.x - stalker.x;
-            let dy = target.y - stalker.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist > 5) { // Only move if he isnt already standing exactly on the waypoint
-                let vx = (dx / dist) * stalker.speed;
-                let vy = (dy / dist) * stalker.speed;
-
-                // Move X
-                stalker.x += vx;
-                let hitX = false;
-                for (let t of obstacles) {
-                    if (t.isWall && stalker.x < t.x + t.w && stalker.x + stalker.size > t.x && 
-                        stalker.y < t.y + t.h && stalker.y + stalker.size > t.y) {
-                        hitX = true; break;
+                // more pages more diffcualt
+                let tpCooldown = Math.max(60, 300 - (pagesFound * 30)); // drops from 5s down to 1s
+                let tpDamage = 15 + (pagesFound * 5); // form 15 to 50
+                
+                // Attack Time
+                if (stalker.actionTeleportTimer >= tpCooldown) {
+                    playerHealth -= tpDamage;
+                    shakeTime = 30; // heavy damage shake
+                    stalker.staticTimer = 40; // intense static to completely jide the teleport
+                    
+                    teleportStalkerSafely(true); 
+                    stalker.actionTeleportTimer = 0;
+                    
+                    // death check for player
+                    if (playerHealth <= 0) {
+                        endScreen = "gameover";
+                        for (let key in keys) { keys[key] = false; }
+                        player.x = WORLD_WIDTH / 2; player.y = WORLD_HEIGHT / 2;
+                        teleportStalkerSafely(false);
+                        pagesFound = 0; stamina = 100;
+                        playerHealth = 100; ammo = 6;
+                        isSprinting = false; shakeTime = 0;
+                        stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
+                        stalker.actionTeleportTimer = 0; stalker.stunTimer = 0;
+                        gameStarted = false;
+                        return;
                     }
                 }
-                if (hitX) stalker.x -= vx; // revert x if it hil wall
-
-                // Move Y
-                stalker.y += vy;
-                let hitY = false;
-                for (let t of obstacles) {
-                    if (t.isWall && stalker.x < t.x + t.w && stalker.x + stalker.size > t.x && 
-                        stalker.y < t.y + t.h && stalker.y + stalker.size > t.y) {
-                        hitY = true; break;
-                    }
-                }
-                if (hitY) stalker.y -= vy; // same for y 
-            }
-
-            // catch player condtion 
-            if ( 
-                player.x < stalker.x + stalker.size &&
-                player.x + player.size > stalker.x &&
-                player.y < stalker.y + stalker.size &&
-                player.y + player.size > stalker.y
-            ) { 
-                endScreen = "gameover";
-                for (let key in keys) { keys[key] = false; }
-                player.x = WORLD_WIDTH / 2; player.y = WORLD_HEIGHT / 2;
-                teleportStalkerSafely(false);
-                pagesFound = 0; stamina = 100;
-                isSprinting = false;
-                shakeTime = 0;
-                stalker.killTimer = 0; 
-                stalker.teleportTimer = 0; 
-                stalker.staticTimer = 0;
-                gameStarted = false;
-                return;
             }
         }
     }
@@ -497,6 +459,18 @@ function update() {
                 teleportStalkerSafely(false);
                 stalker.staticTimer = 10; 
                 bullets.splice(i, 1);
+                
+                // bullet inflictss 20 second cooldown in action mode
+                if (gameMode === "action") {
+                    stalker.stunTimer = 1200; // 60 FPS * 20 sec = 1200 frames whichs is the 20 seconds i need 
+                    stalker.actionTeleportTimer = 0; 
+                    // if he got hit teleport to the deepset part of the boonies because the idiot would just be in the map
+                    stalker.x = -10000;
+                    stalker.y = -10000;
+                } else {
+                    // in horror mode just do the normal safe teleport
+                    teleportStalkerSafely(false);
+                }
             }
         }
     }
@@ -523,6 +497,12 @@ function update() {
             page.x = pageLocations[pagesFound].x;
             page.y = pageLocations[pagesFound].y; 
             stalker.speed += 0.2;     
+            
+            // reheal and resupply on page collect
+            if (gameMode === "action") {
+                playerHealth = 100;
+                ammo += 3;
+            }
         }
     }
 
@@ -535,8 +515,10 @@ function update() {
         gameStarted = false;
         player.x = WORLD_WIDTH / 2; player.y = WORLD_HEIGHT / 2;
         teleportStalkerSafely(false);
+        playerHealth = 100; ammo = 6;
         isSprinting = false; shakeTime = 0;
         stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
+        stalker.actionTeleportTimer = 0; stalker.stunTimer = 0;
     }
 }
 
@@ -544,9 +526,16 @@ function draw() {
     ctx.save();
     
     ctx.imageSmoothingEnabled = false;
+    
+    // Constant minor trembling if injured in Action Mode
+    if (gameStarted && gameMode === "action" && playerHealth < 100) {
+        let hurtTremble = (100 - playerHealth) / 20;
+        ctx.translate((Math.random() - 0.5) * hurtTremble, (Math.random() - 0.5) * hurtTremble);
+    }
+
     if (shakeTime > 0) {
-        let shakeX = (Math.random() - 0.5) * 10;
-        let shakeY = (Math.random() - 0.5) * 10;
+        let shakeX = (Math.random() - 0.5) * 15; // Increased base shake
+        let shakeY = (Math.random() - 0.5) * 15;
         ctx.translate(shakeX, shakeY);
     }
     
@@ -668,12 +657,13 @@ function draw() {
     }
 
     if (gameStarted && stalker.staticTimer > 0) {
-        for (let i = 0; i < 5000; i++) { 
+        // Boosted to 8000 iterations to make the static effect intensely blinding during action teleports
+        for (let i = 0; i < 8000; i++) { 
             let x = Math.random() * canvas.width;
             let y = Math.random() * canvas.height;
             let gray = Math.random() * 255;
-            ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, 0.4)`;
-            ctx.fillRect(x, y, 2, 2);
+            ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, 0.6)`; // Increased opacity
+            ctx.fillRect(x, y, 3, 3); // Slightly larger pixels for bolder static
         }
     }
 
@@ -706,24 +696,56 @@ function draw() {
             ctx.fillText("Press 'A' for Action Mode", canvas.width / 2, canvas.height / 2 + 70);
         }
     } else {
-        if (gameMode === "horror" && stalker.killTimer > 0) {
-            ctx.fillStyle = `rgba(255, 0, 0, ${stalker.killTimer / 240})`; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // UI Handling depending on Mode
+        if (gameMode === "action") {
+            // Screen bleeding red based on health lost
+            if (playerHealth < 100) {
+                ctx.fillStyle = `rgba(255, 0, 0, ${(100 - playerHealth) / 150})`; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            ctx.fillStyle = "white";
+            ctx.font = "15px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("Mode: " + gameMode.toUpperCase(), 20, 30);
+            ctx.fillText("Pages: " + pagesFound + "/8", 20, 50);
+            ctx.fillText("Health: " + Math.max(0, Math.floor(playerHealth)) + "%", 20, 70);
+            ctx.fillText("Ammo: " + ammo, 20, 90);
+            
+            ctx.fillStyle = "gray";
+            ctx.fillRect(20, 110, 100, 10); 
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "cyan" : "lime";
+            ctx.fillRect(20, 110, stamina, 10);
+            ctx.strokeStyle = "white";
+            ctx.strokeRect(20, 110, 100, 10);
+
+            if (stalker.stunTimer > 0) {
+                ctx.fillStyle = "lime";
+                ctx.fillText("Slender Cooldown: " + Math.ceil(stalker.stunTimer / 60) + "s", 20, 140);
+            }
+
+        } else {
+            // Original Horror HUD
+            if (stalker.killTimer > 0) {
+                ctx.fillStyle = `rgba(255, 0, 0, ${stalker.killTimer / 240})`; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            ctx.fillStyle = "white";
+            ctx.font = "15px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("Mode: " + gameMode.toUpperCase(), 20, 30);
+            ctx.fillText("Pages: " + pagesFound + "/8", 20, 50); 
+            ctx.fillStyle = "gray";
+            ctx.fillRect(20, 70, 100, 10); 
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "cyan" : "lime";
+            ctx.fillRect(20, 70, stamina, 10);
+            ctx.strokeStyle = "white";
+            ctx.strokeRect(20, 70, 100, 10);
         }
-        ctx.fillStyle = "white";
-        ctx.font = "15px Arial";
-        ctx.textAlign = "left";
-        ctx.fillText("Mode: " + gameMode.toUpperCase(), 20, 30);
-        ctx.fillText("Pages: " + pagesFound + "/8", 20, 50); 
-        ctx.fillStyle = "gray";
-        ctx.fillRect(20, 70, 100, 10); 
-        ctx.fillStyle = isExhausted ? "red" : isSprinting ? "cyan" : "lime";
-        ctx.fillRect(20, 70, stamina, 10);
-        ctx.strokeStyle = "white";
-        ctx.strokeRect(20, 70, 100, 10);
     }
     ctx.restore();
 }
+
 // main 
 function gameloop() {
     update(); draw(); requestAnimationFrame(gameloop);
