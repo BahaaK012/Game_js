@@ -22,10 +22,10 @@ const slenderImg = new Image();
 slenderImg.src = 'slender_new.png'; 
 
 const playerImg = new Image();
-playerImg.src = 'New Piskel (7).png'; // Still frame
+playerImg.src = 'player_front.png'; // Still frame
 
 const playerAnimImg = new Image();
-playerAnimImg.src = 'New Piskel (16).png'; // Animated walk frame
+playerAnimImg.src = 'player_side.png'; // Animated walk frame
 
 const treeImg = new Image();
 treeImg.src = 'tree1.png';
@@ -127,7 +127,7 @@ let gameStarted = false;
 let gameMode = "";
 let endScreen = "";
 
-// Player Health & Ammo Systems
+// player Health and  ammo Systems
 let playerHealth = 100;
 let ammo = 6; 
 
@@ -164,7 +164,8 @@ const player = {
     size: 60, // Increased to show off the 1080px detail otherwise they look ugly
     speed: 5,
     animTimer: 0,
-    showAnimFrame: false
+    showAnimFrame: false,
+    facingLeft: false // Track orientation for left-facing horizontal flips
 };
 
 const stalker = {
@@ -221,7 +222,7 @@ window.addEventListener('keyup', (e) => {
 });
 
 function shootBullet() {
-    if (ammo <= 0) return; // Prevent shooting if no ammo
+    if (ammo <= 0) return; // no ammo no shoot
     ammo--;
     
     shakeTime = 10; 
@@ -238,7 +239,7 @@ function shootBullet() {
     }); 
 }
 
-// Helper to spawn Stalker safely without getting trapped in a wall
+// Helper to spawn Stalker safely without getting trapped in a wall (i hope this wokrs)
 function teleportStalkerSafely(isCloseToPlayer = false) {
     let validSpot = false; 
     let tx, ty;
@@ -309,8 +310,14 @@ function update() {
 
     if (keys['arrowup'] || keys['w']) nextY -= currentSpeed;
     if (keys['arrowdown'] || keys['s']) nextY += currentSpeed;
-    if (keys['arrowleft'] || keys['a']) nextX -= currentSpeed;
-    if (keys['arrowright'] || keys['d']) nextX += currentSpeed;
+    if (keys['arrowleft'] || keys['a']) {
+        nextX -= currentSpeed;
+        player.facingLeft = true; // Flips image for left movement (this is the coolest thing I found and it helops not to waste yourr time drawing)
+    }
+    if (keys['arrowright'] || keys['d']) {
+        nextX += currentSpeed;
+        player.facingLeft = false; // Uses native right orientation
+    }
 
     // collisions with walls only for player
     let canMoveX = true;
@@ -456,7 +463,6 @@ function update() {
                 bullets[i].y < stalker.y + stalker.size &&
                 bullets[i].y + bullets[i].size > stalker.y
             ) {
-                teleportStalkerSafely(false);
                 stalker.staticTimer = 10; 
                 bullets.splice(i, 1);
                 
@@ -585,10 +591,18 @@ function draw() {
             ctx.drawImage(slenderImg, stalker.x, stalker.y, stalker.size, stalker.size);
         }
 
-        // Draw Player 
+        // Draw Player with Left/Right directional flip
         const currentPlayerImg = player.showAnimFrame ? playerAnimImg : playerImg;
         if (currentPlayerImg.complete && currentPlayerImg.width > 0) {
-            ctx.drawImage(currentPlayerImg, player.x, player.y, player.size, player.size);
+            ctx.save();
+            if (player.facingLeft) {
+                ctx.translate(player.x + player.size, player.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(currentPlayerImg, 0, 0, player.size, player.size);
+            } else {
+                ctx.drawImage(currentPlayerImg, player.x, player.y, player.size, player.size);
+            }
+            ctx.restore();
         } else {
             ctx.fillStyle = (gameMode === "action") ? "cyan" : "white";
             ctx.fillRect(player.x, player.y, player.size, player.size);
