@@ -5,6 +5,26 @@ const bulletSpeed = 10;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// --- OPTIMIZATION: Pre-render static noise to stop the 15,000 loops per frame ---
+const staticCanvas = document.createElement('canvas');
+staticCanvas.width = 512;
+staticCanvas.height = 512;
+const staticCtx = staticCanvas.getContext('2d');
+const staticData = staticCtx.createImageData(512, 512);
+for (let i = 0; i < staticData.data.length; i += 4) {
+    let v = Math.random() * 255;
+    staticData.data[i] = v;
+    staticData.data[i+1] = v;
+    staticData.data[i+2] = v;
+    staticData.data[i+3] = 255;
+}
+staticCtx.putImageData(staticData, 0, 0);
+
+// --- OPTIMIZATION: Create darkness canvas once, instead of 60 times a second ---
+const darkCanvas = document.createElement("canvas");
+const darkCtx = darkCanvas.getContext("2d");
+
+
 const mouse = { x:0, y: 0}; // pointer for the mouse 
 window.addEventListener('mousemove', (e)=> {
     mouse.x = e.clientX;
@@ -127,7 +147,7 @@ let gameStarted = false;
 let gameMode = "";
 let endScreen = "";
 
-// player Health and  ammo Systems
+// Player Health & Ammo Systems
 let playerHealth = 100;
 let ammo = 6; 
 
@@ -178,6 +198,7 @@ const stalker = {
     teleportTimer: 0,
     reactionBuffer: 0, 
     staticTimer: 0, 
+    stareTimer: 0, // Progressive static buildup when player looks at him
     // New Action Mode variables
     actionTeleportTimer: 0, 
     stunTimer: 0,
@@ -222,7 +243,7 @@ window.addEventListener('keyup', (e) => {
 });
 
 function shootBullet() {
-    if (ammo <= 0) return; // no ammo no shoot
+    if (ammo <= 0) return; // Prevent shooting if no ammo
     ammo--;
     
     shakeTime = 10; 
@@ -239,7 +260,7 @@ function shootBullet() {
     }); 
 }
 
-// Helper to spawn Stalker safely without getting trapped in a wall (i hope this wokrs)
+// Helper to spawn Stalker safely without getting trapped in a wall
 function teleportStalkerSafely(isCloseToPlayer = false) {
     let validSpot = false; 
     let tx, ty;
@@ -312,7 +333,7 @@ function update() {
     if (keys['arrowdown'] || keys['s']) nextY += currentSpeed;
     if (keys['arrowleft'] || keys['a']) {
         nextX -= currentSpeed;
-        player.facingLeft = true; // Flips image for left movement (this is the coolest thing I found and it helops not to waste yourr time drawing)
+        player.facingLeft = true; // Flips image for left movement
     }
     if (keys['arrowright'] || keys['d']) {
         nextX += currentSpeed;
@@ -363,6 +384,11 @@ function update() {
 
             if (!isBeingWatched) {
                 stalker.reactionBuffer = 0; 
+                
+                // Rapidly fade the static out when you look away
+                if (stalker.stareTimer > 0) stalker.stareTimer -= 2;
+                if (stalker.stareTimer < 0) stalker.stareTimer = 0;
+
                 stalker.teleportTimer++; 
                 if (stalker.teleportTimer > stats.teleportCooldown){
                     teleportStalkerSafely(true); 
@@ -371,6 +397,7 @@ function update() {
                 }
             } else {
                 stalker.reactionBuffer++;
+                stalker.stareTimer++; // Grows progressively while looking
                 if (stalker.reactionBuffer > 5) { 
                     stalker.teleportTimer = 0; 
                 }
@@ -387,6 +414,7 @@ function update() {
                     pagesFound = 0; stamina = 100;
                     isSprinting = false; shakeTime = 0;
                     stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
+                    stalker.stareTimer = 0;
                     gameStarted = false;
                     return; 
                 }
@@ -525,6 +553,7 @@ function update() {
         isSprinting = false; shakeTime = 0;
         stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
         stalker.actionTeleportTimer = 0; stalker.stunTimer = 0;
+        stalker.stareTimer = 0;
     }
 }
 
@@ -591,7 +620,7 @@ function draw() {
             ctx.drawImage(slenderImg, stalker.x, stalker.y, stalker.size, stalker.size);
         }
 
-        // Draw Player with Left/Right directional flip
+        // Draw Player with Left and Right directional flip
         const currentPlayerImg = player.showAnimFrame ? playerAnimImg : playerImg;
         if (currentPlayerImg.complete && currentPlayerImg.width > 0) {
             ctx.save();
@@ -636,10 +665,12 @@ function draw() {
     ctx.restore();
 
     if (gameStarted && gameMode === "horror") {
-        const darkCanvas = document.createElement("canvas");
-        darkCanvas.width = canvas.width;
-        darkCanvas.height = canvas.height;
-        const darkCtx = darkCanvas.getContext("2d");
+        if (darkCanvas.width !== canvas.width || darkCanvas.height !== canvas.height) {
+            darkCanvas.width = canvas.width;
+            darkCanvas.height = canvas.height;
+        }
+
+        darkCtx.globalCompositeOperation = "source-over";
         darkCtx.fillStyle = "rgb(0, 0, 10)";
         darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
         darkCtx.globalCompositeOperation = "destination-out";
@@ -670,14 +701,30 @@ function draw() {
         ctx.drawImage(darkCanvas, 0, 0);
     }
 
-    if (gameStarted && stalker.staticTimer > 0) {
-        // Boosted to 8000 iterations to make the static effect intensely blinding during action teleports
-        for (let i = 0; i < 8000; i++) { 
-            let x = Math.random() * canvas.width;
-            let y = Math.random() * canvas.height;
-            let gray = Math.random() * 255;
-            ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, 0.6)`; // Increased opacity
-            ctx.fillRect(x, y, 3, 3); // Slightly larger pixels for bolder static
+    if (gameStarted) {
+        let drawStatic = false;
+        let staticAlpha = 0;
+
+        // Base static from Action Mode teleport or normal Horror teleport
+        if (stalker.staticTimer > 0) {
+            drawStatic = true;
+            staticAlpha = 0.6;
+        } 
+        // progressive stare static for stopping player from looking too much
+        else if (gameMode === "horror" && stalker.stareTimer > 0) {
+            drawStatic = true;
+            let stareIntensity = Math.min(stalker.stareTimer / 120, 1); //  after 2 seconds
+            staticAlpha = 0.9 * stareIntensity; // almost solid opacity
+        }
+
+        if (drawStatic) {
+            ctx.save();
+            ctx.globalAlpha = staticAlpha;
+            // Draw tiled/stretched static with random offset to animate it
+            let offsetX = -(Math.random() * 256);
+            let offsetY = -(Math.random() * 256);
+            ctx.drawImage(staticCanvas, offsetX, offsetY, canvas.width + 256, canvas.height + 256);
+            ctx.restore();
         }
     }
 
