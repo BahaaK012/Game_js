@@ -5,7 +5,7 @@ const bulletSpeed = 10;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// --- OPTIMIZATION: Pre-render static noise to stop the 15,000 loops per frame ---
+// copying the static so it can not cause lag 
 const staticCanvas = document.createElement('canvas');
 staticCanvas.width = 512;
 staticCanvas.height = 512;
@@ -20,20 +20,17 @@ for (let i = 0; i < staticData.data.length; i += 4) {
 }
 staticCtx.putImageData(staticData, 0, 0);
 
-// --- OPTIMIZATION: Create darkness canvas once, instead of 60 times a second ---
 const darkCanvas = document.createElement("canvas");
 const darkCtx = darkCanvas.getContext("2d");
 
-
-const mouse = { x:0, y: 0}; // pointer for the mouse 
+const mouse = { x:0, y: 0}; 
 window.addEventListener('mousemove', (e)=> {
     mouse.x = e.clientX;
     mouse.y = e.clientY;
   });
 
-  // shooting lisnter for action mode 
-  window.addEventListener('mousedown', (e) => {
-    if (gameStarted && gameMode === "action") {
+window.addEventListener('mousedown', (e) => {
+    if (gameStarted && gameMode === "action" && !intro.active) {
         shootBullet();
     }
 });
@@ -42,10 +39,10 @@ const slenderImg = new Image();
 slenderImg.src = 'slender_new.png'; 
 
 const playerImg = new Image();
-playerImg.src = 'player_front.png'; // Still frame
+playerImg.src = 'player_front.png'; 
 
 const playerAnimImg = new Image();
-playerAnimImg.src = 'player_side.png'; // Animated walk frame
+playerAnimImg.src = 'player_side.png'; 
 
 const treeImg = new Image();
 treeImg.src = 'tree1.png';
@@ -56,118 +53,194 @@ tree2Img.src = 'tree2.png';
 const groundImg = new Image();
 groundImg.src = 'map.png';
 
-// Wall Image
 const wallImg = new Image();
 wallImg.src = 'wall.png'; 
 
-//WORLD BORDER 
+const floorImg = new Image();
+floorImg.src = 'IndoorFloor.png';
+
+const campfireImg = new Image();
+campfireImg.src = 'campfire.png';
+
+const scarecrowImg = new Image();
+scarecrowImg.src = 'scarecrow.png';
+
+const scarecrow2Img = new Image();
+scarecrow2Img.src = 'scarecrow2.png';
+
 const borderImg = new Image();
 borderImg.src = 'Pared del medio_0.png'; 
 
-// 4x map size
-const WORLD_WIDTH = 5000;
-const WORLD_HEIGHT = 4000;
+// 4x map size becuase why not 
+const WORLD_WIDTH = 10000;
+const WORLD_HEIGHT = 8000;
 const BORDER_SIZE = 20; 
 
-const obstacles = [
-    // INDOOR1 (House)
-    { img: wallImg, x: 1200, y: 300, w: 40, h: 640, isWall: true }, 
-    { img: wallImg, x: 1960, y: 300, w: 40, h: 640, isWall: true }, 
-    { img: wallImg, x: 1200, y: 300, w: 800, h: 40, isWall: true }, 
-    { img: wallImg, x: 1200, y: 900, w: 340, h: 40, isWall: true }, 
-    { img: wallImg, x: 1660, y: 900, w: 340, h: 40, isWall: true }, 
-    { img: wallImg, x: 1240, y: 580, w: 260, h: 40, isWall: true }, 
-    { img: wallImg, x: 1700, y: 580, w: 260, h: 40, isWall: true }, 
-    { img: wallImg, x: 1500, y: 340, w: 40, h: 100, isWall: true }, 
-    { img: wallImg, x: 1500, y: 540, w: 40, h: 80, isWall: true }, 
-    { img: wallImg, x: 1500, y: 620, w: 40, h: 100, isWall: true }, 
-    { img: wallImg, x: 1500, y: 820, w: 40, h: 80, isWall: true }, 
-    { img: wallImg, x: 1660, y: 340, w: 40, h: 100, isWall: true },
-    { img: wallImg, x: 1660, y: 540, w: 40, h: 80, isWall: true }, 
-    { img: wallImg, x: 1660, y: 620, w: 40, h: 100, isWall: true },
-    { img: wallImg, x: 1660, y: 820, w: 40, h: 80, isWall: true },
-
-    // INDOOR 2 (Warehouse)
-    { img: wallImg, x: 3500, y: 2000, w: 40, h: 800, isWall: true }, 
-    { img: wallImg, x: 4260, y: 2000, w: 40, h: 800, isWall: true }, 
-    { img: wallImg, x: 3500, y: 2000, w: 800, h: 40, isWall: true }, 
-    { img: wallImg, x: 3500, y: 2760, w: 300, h: 40, isWall: true }, 
-    { img: wallImg, x: 4000, y: 2760, w: 300, h: 40, isWall: true }, 
-    { img: wallImg, x: 3540, y: 2400, w: 300, h: 40, isWall: true }, 
-
-    // INDOOR 3 (Shed)
-    { img: wallImg, x: 600, y: 3000, w: 40, h: 400, isWall: true }, 
-    { img: wallImg, x: 1060, y: 3000, w: 40, h: 400, isWall: true }, 
-    { img: wallImg, x: 600, y: 3000, w: 500, h: 40, isWall: true }, 
-    { img: wallImg, x: 600, y: 3360, w: 150, h: 40, isWall: true }, 
-    { img: wallImg, x: 910, y: 3360, w: 190, h: 40, isWall: true }, 
-
-    // THE WOODS 
-    { img: treeImg,  x: 300, y: 200, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 150, y: 400, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 600, y: 150, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 800, y: 500, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 200, y: 600, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 700, y: 50,  w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 450, y: 350, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 50,  y: 250, w: 390, h: 390, isWall: false },
-    { img: tree2Img, x: 650, y: 400, w: 390, h: 390, isWall: false },
-    { img: tree2Img, x: 350, y: 550, w: 390, h: 390, isWall: false },
-
-    // MORE Trees
-    { img: treeImg,  x: 2500, y: 300, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 3100, y: 150, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 2800, y: 600, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 3900, y: 500, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 4400, y: 250, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 4600, y: 800, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 2100, y: 1200, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 2500, y: 1500, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 3200, y: 1100, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 100, y: 1300, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 500, y: 1600, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 900, y: 1800, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 1800, y: 2200, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 2300, y: 2600, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 2900, y: 2100, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 150, y: 2500, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 1200, y: 2800, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 4500, y: 1500, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 4200, y: 1200, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 4000, y: 3200, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 4600, y: 3600, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 3100, y: 3500, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 2500, y: 3300, w: 320, h: 400, isWall: false },
-    { img: tree2Img, x: 1900, y: 3700, w: 390, h: 390, isWall: false },
-    { img: treeImg,  x: 1400, y: 3500, w: 320, h: 400, isWall: false },
-    { img: treeImg,  x: 200, y: 3700, w: 320, h: 400, isWall: false }
+// bilding coordinates 
+const buildings = [
+    { x: 1000, y: 1000, w: 1500, h: 1200, dx: 1750, dy: 2300 }, // Manor
+    { x: 4000, y: 5000, w: 2000, h: 1500, dx: 5000, dy: 6600 }, // Warehouse
+    { x: 7000, y: 1000, w: 1800, h: 1800, dx: 6800, dy: 1900 }, // Asylum
+    { x: 7500, y: 6000, w: 1500, h: 1500, dx: 8250, dy: 7600 }  // Cabin
 ];
+
+const obstacles = [
+    // bulding 1 floor + wall
+    { img: floorImg, x: 1000, y: 1000, w: 1500, h: 1200, isFloor: true },
+    { img: wallImg, x: 1000, y: 1000, w: 1500, h: 40, isWall: true }, // Top
+    { img: wallImg, x: 1000, y: 2160, w: 650, h: 40, isWall: true }, // Bottom L
+    { img: wallImg, x: 1850, y: 2160, w: 650, h: 40, isWall: true }, // Bottom R 
+    { img: wallImg, x: 1000, y: 1000, w: 40, h: 1200, isWall: true }, // Left
+    { img: wallImg, x: 2460, y: 1000, w: 40, h: 1200, isWall: true }, // Right
+    { img: wallImg, x: 1040, y: 1500, w: 610, h: 40, isWall: true }, // Inner H Divider L
+    { img: wallImg, x: 1890, y: 1500, w: 570, h: 40, isWall: true }, // Inner H Divider R
+    // Left Hall Wall (with doors)
+    { img: wallImg, x: 1650, y: 1040, w: 40, h: 260, isWall: true }, 
+    { img: wallImg, x: 1650, y: 1450, w: 40, h: 300, isWall: true }, 
+    { img: wallImg, x: 1650, y: 1900, w: 40, h: 260, isWall: true }, 
+    // Right Hall Wall (with doors)
+    { img: wallImg, x: 1850, y: 1040, w: 40, h: 260, isWall: true }, 
+    { img: wallImg, x: 1850, y: 1450, w: 40, h: 300, isWall: true },  // btw this is hell 
+    { img: wallImg, x: 1850, y: 1900, w: 40, h: 260, isWall: true }, 
+
+    // 2 same 
+    { img: floorImg, x: 4000, y: 5000, w: 2000, h: 1500, isFloor: true },
+    { img: wallImg, x: 4000, y: 5000, w: 2000, h: 40, isWall: true }, // Top
+    { img: wallImg, x: 4000, y: 6460, w: 900, h: 40, isWall: true }, // Bottom L
+    { img: wallImg, x: 5100, y: 6460, w: 900, h: 40, isWall: true }, // Bottom R (Entrance)
+    { img: wallImg, x: 4000, y: 5000, w: 40, h: 1500, isWall: true }, // Left
+    { img: wallImg, x: 5960, y: 5000, w: 40, h: 1500, isWall: true }, // Right
+    // Horizontal Hallway Top Wall
+    { img: wallImg, x: 4000, y: 5500, w: 200, h: 40, isWall: true }, 
+    { img: wallImg, x: 4350, y: 5500, w: 600, h: 40, isWall: true }, 
+    { img: wallImg, x: 5100, y: 5500, w: 500, h: 40, isWall: true }, 
+    { img: wallImg, x: 5750, y: 5500, w: 250, h: 40, isWall: true }, 
+    // Horizontal Hallway Bottom Wall
+    { img: wallImg, x: 4000, y: 5800, w: 200, h: 40, isWall: true }, 
+    { img: wallImg, x: 4350, y: 5800, w: 500, h: 40, isWall: true }, 
+    { img: wallImg, x: 5100, y: 5800, w: 500, h: 40, isWall: true }, 
+    { img: wallImg, x: 5750, y: 5800, w: 250, h: 40, isWall: true }, 
+    // Vertical room dividers
+    { img: wallImg, x: 4500, y: 5000, w: 40, h: 500, isWall: true }, 
+    { img: wallImg, x: 4500, y: 5840, w: 40, h: 620, isWall: true }, 
+    { img: wallImg, x: 5500, y: 5000, w: 40, h: 500, isWall: true }, 
+    { img: wallImg, x: 5500, y: 5840, w: 40, h: 620, isWall: true }, 
+    // Entry channel
+    { img: wallImg, x: 4900, y: 5840, w: 40, h: 620, isWall: true }, 
+    { img: wallImg, x: 5100, y: 5840, w: 40, h: 620, isWall: true },
+
+    // 3
+    { img: floorImg, x: 7000, y: 1000, w: 1800, h: 1800, isFloor: true },
+    { img: wallImg, x: 7000, y: 1000, w: 1800, h: 40, isWall: true }, // Top
+    { img: wallImg, x: 7000, y: 2760, w: 1800, h: 40, isWall: true }, // Bottom
+    { img: wallImg, x: 8760, y: 1000, w: 40, h: 1800, isWall: true }, // Right
+    { img: wallImg, x: 7000, y: 1000, w: 40, h: 800, isWall: true }, // Left Top
+    { img: wallImg, x: 7000, y: 2000, w: 40, h: 800, isWall: true }, // Left Bot (Side Entrance)
+    // Central Spine Corridors
+    { img: wallImg, x: 7040, y: 1800, w: 300, h: 40, isWall: true }, 
+    { img: wallImg, x: 7490, y: 1800, w: 300, h: 40, isWall: true }, 
+    { img: wallImg, x: 7940, y: 1800, w: 300, h: 40, isWall: true }, 
+    { img: wallImg, x: 8390, y: 1800, w: 370, h: 40, isWall: true }, 
+    { img: wallImg, x: 7040, y: 2000, w: 300, h: 40, isWall: true }, 
+    { img: wallImg, x: 7490, y: 2000, w: 300, h: 40, isWall: true }, 
+    { img: wallImg, x: 7940, y: 2000, w: 300, h: 40, isWall: true }, 
+    { img: wallImg, x: 8390, y: 2000, w: 370, h: 40, isWall: true }, 
+    // Ward Dividers
+    { img: wallImg, x: 7500, y: 1040, w: 40, h: 760, isWall: true }, 
+    { img: wallImg, x: 8000, y: 1040, w: 40, h: 760, isWall: true }, 
+    { img: wallImg, x: 7500, y: 2040, w: 40, h: 720, isWall: true }, 
+    { img: wallImg, x: 8000, y: 2040, w: 40, h: 720, isWall: true }, 
+
+    // 5
+    { img: floorImg, x: 7500, y: 6000, w: 1500, h: 1500, isFloor: true },
+    { img: wallImg, x: 7500, y: 6000, w: 1500, h: 40, isWall: true }, // Top
+    { img: wallImg, x: 7500, y: 7460, w: 700, h: 40, isWall: true }, // Bottom L
+    { img: wallImg, x: 8350, y: 7460, w: 650, h: 40, isWall: true }, // Bottom R (Entrance)
+    { img: wallImg, x: 7500, y: 6000, w: 40, h: 1500, isWall: true }, // Left
+    { img: wallImg, x: 8960, y: 6000, w: 40, h: 1500, isWall: true }, // Right
+    // Zig zag walls and yes they didnt really work but I will keep them 
+    { img: wallImg, x: 7900, y: 6000, w: 40, h: 800, isWall: true }, 
+    { img: wallImg, x: 7900, y: 6950, w: 40, h: 510, isWall: true }, 
+    { img: wallImg, x: 7940, y: 7000, w: 400, h: 40, isWall: true }, 
+    { img: wallImg, x: 8490, y: 7000, w: 470, h: 40, isWall: true }
+];
+
+
+function isInsideBuilding(x, y, w, h) {
+    for(let b of buildings) {
+        if (x + w > b.x - 300 && x < b.x + b.w + 300 &&
+            y + h > b.y - 300 && y < b.y + b.h + 300) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// limit the assets so they dont be too much 
+for(let i = 0; i < 550; i++) {
+    let rand = Math.random();
+    let type;
+    
+    if (rand < 0.50) type = {img: treeImg, w: 320, h: 400, isTree: true}; // 50% Tree 1
+    else if (rand < 0.88) type = {img: tree2Img, w: 390, h: 390, isTree: true}; // 38% Tree 2
+    else if (rand < 0.93) type = {img: scarecrowImg, w: 140, h: 140, isProp: true}; // 5% Scarecrow 1
+    else if (rand < 0.98) type = {img: scarecrow2Img, w: 140, h: 140, isProp: true}; // 5% Scarecrow 2
+    else type = {img: campfireImg, w: 120, h: 120, isProp: true}; // 2% Campfire
+
+    let tx = Math.random() * (WORLD_WIDTH - 600) + 300;
+    let ty = Math.random() * (WORLD_HEIGHT - 600) + 300;
+
+    if (!isInsideBuilding(tx, ty, type.w, type.h)) {
+        obstacles.push({
+            img: type.img, x: tx, y: ty, w: type.w, h: type.h, 
+            isWall: false, isFloor: false, isProp: type.isProp || false, isTree: type.isTree || false
+        });
+    }
+}
 
 let gameStarted = false;
 let gameMode = "";
 let endScreen = "";
 
-// Player Health & Ammo Systems
+// -cimentic intro 
+const introDialogue = [
+    { speaker: "Player", text: "Where... where am I? It's so cold... What is this place?" },
+    { speaker: "Bahaa", text: "You are inside the matrix of my code. A fragile entity born within the canvas." },
+    { speaker: "Player", text: "Who's there?! Show yourself!" },
+    { speaker: "Bahaa", text: "I am your creator. I built this forest, these walls, and the terror that hunts you." },
+    { speaker: "Bahaa", text: "It is my final project for Tuğberk Hoca's class. The ultimate hurdle." },
+    { speaker: "Player", text: "A project?! You're feeding me to a monster for a grade?!" },
+    { speaker: "Bahaa", text: "I am sorry, my friend. Your terror is the toll I must pay. Face your fate." }
+];
+
+let intro = {
+    active: false,
+    alpha: 1.0, 
+    fadeState: 'dark', 
+    timer: 0,
+    lineIdx: 0,
+    charIdx: 0,
+    showText: ""
+};
+
 let playerHealth = 100;
 let ammo = 6; 
-
-// stamina
 let stamina = 100;
 let isSprinting = false; 
-let isExhausted = false; // to adjust certain problems with stamina
+let isExhausted = false; 
 const maxStamina = 100;
 let shakeTime = 0;
 
-// static page locations because when I showed it to my lecturer the pages decided not to appear
+// static safe locations for pages 
 const pageLocations = [
-    { x: 1300, y: 400 },  // Inside Building 1 (Top Left Room)
-    { x: 3800, y: 2200 }, // Inside Building 2 (Warehouse)
-    { x: 800, y: 3150 },  // Inside Building 3 (Shed)
-    { x: 400, y: 800 },   // Woods Top-Left
-    { x: 2800, y: 1000 }, // Woods Top-Mid
-    { x: 4600, y: 500 },  // Woods Top-Right
-    { x: 2000, y: 3500 }, // Woods Bottom-Mid
-    { x: 1500, y: 1500 }  // Woods Center
+    { x: 1200, y: 1200 }, // Deep inside Manor
+    { x: 5000, y: 5700 }, // Deep inside Warehouse
+    { x: 7900, y: 1900 }, // Deep inside Asylum
+    { x: 8200, y: 6700 }, // Deep inside Lodge
+    { x: 2000, y: 7000 }, // Woods Deep South
+    { x: 9000, y: 1000 }, // Woods Far East
+    { x: 1000, y: 6000 }, // Woods West
+    { x: 5000, y: 1500 }  // Woods North
 ];
 
 let pagesFound = 0;
@@ -185,12 +258,12 @@ const player = {
     speed: 5,
     animTimer: 0,
     showAnimFrame: false,
-    facingLeft: false // Track orientation for left-facing horizontal flips
+    facingLeft: false 
 };
 
 const stalker = {
-    x: WORLD_WIDTH / 2 + 500,
-    y: WORLD_HEIGHT / 2 + 500,
+    x: WORLD_WIDTH / 2 + 1000,
+    y: WORLD_HEIGHT / 2 + 1000,
     size: 80, 
     speed: 2.5,
     color: "red", 
@@ -198,8 +271,7 @@ const stalker = {
     teleportTimer: 0,
     reactionBuffer: 0, 
     staticTimer: 0, 
-    stareTimer: 0, // Progressive static buildup when player looks at him
-    // New Action Mode variables
+    stareTimer: 0, 
     actionTeleportTimer: 0, 
     stunTimer: 0,
     phases: {
@@ -213,27 +285,46 @@ const keys = {};
 
 window.addEventListener('keydown', (e) => {
  keys[e.key.toLowerCase()] = true;
+
+ if (e.code === 'Space' && intro.active && intro.fadeState === 'dialogue') {
+     if (intro.charIdx < introDialogue[intro.lineIdx].text.length) {
+         intro.showText = introDialogue[intro.lineIdx].text;
+         intro.charIdx = introDialogue[intro.lineIdx].text.length;
+     } else {
+         intro.lineIdx++;
+         intro.charIdx = 0;
+         intro.showText = "";
+         if (intro.lineIdx >= introDialogue.length) {
+             intro.fadeState = 'flickerOut';
+             intro.timer = 0;
+         }
+     }
+     return; 
+ }
+
  if (!gameStarted && endScreen !==""){
     endScreen = "";
     return;
  }
-    if (e.key.toLowerCase() === 'shift' && gameStarted && !isExhausted) {
+    if (e.key.toLowerCase() === 'shift' && gameStarted && !isExhausted && !intro.active) {
         isSprinting = !isSprinting;
     }
-    if (e.code === 'Space' && gameStarted && gameMode === "action") {
+    if (e.code === 'Space' && gameStarted && gameMode === "action" && !intro.active) {
         shootBullet();
     }
     if (!gameStarted) {
         if (e.key.toLowerCase() === 'h') {
             gameMode = "horror";
             player.speed = 5;
-            stalker.speed = 2.5;
+            stalker.speed = 3.0; // Slightly faster for giant map
             gameStarted = true;
+            intro.active = true; 
         }
         if (e.key.toLowerCase() === 'a') {
             gameMode = "action";
             player.speed = 7;
             gameStarted = true;
+            intro.active = true; 
         }
     }
 });
@@ -243,7 +334,7 @@ window.addEventListener('keyup', (e) => {
 });
 
 function shootBullet() {
-    if (ammo <= 0) return; // Prevent shooting if no ammo
+    if (ammo <= 0) return; 
     ammo--;
     
     shakeTime = 10; 
@@ -260,24 +351,23 @@ function shootBullet() {
     }); 
 }
 
-// Helper to spawn Stalker safely without getting trapped in a wall
 function teleportStalkerSafely(isCloseToPlayer = false) {
     let validSpot = false; 
     let tx, ty;
     let attempts = 0;
-    while (!validSpot && attempts < 100) { // in casw we wont found it doesewnt fall into infinite loop 
+    while (!validSpot && attempts < 100) { 
         if (isCloseToPlayer) {
-            tx = player.x + (Math.random() - 0.5) * 800; // generate closer x around the player for strikes
-            ty = player.y + (Math.random() - 0.5) * 800; 
-        } else { // if the teleport is not near player 
+            tx = player.x + (Math.random() - 0.5) * 1200; 
+            ty = player.y + (Math.random() - 0.5) * 1200; 
+        } else { 
             tx = Math.random() * (WORLD_WIDTH - 100) + 50; 
             ty = Math.random() * (WORLD_HEIGHT - 100) + 50;
         }
-        // CHECK border size with map size
+        
         tx = Math.max(BORDER_SIZE, Math.min(tx, WORLD_WIDTH - BORDER_SIZE - stalker.size));
         ty = Math.max(BORDER_SIZE, Math.min(ty, WORLD_HEIGHT - BORDER_SIZE - stalker.size));
 
-        let hitWall = false; // to check walls since  I DONT WANT him to telport to walls
+        let hitWall = false; 
         for(let t of obstacles) {
             if(t.isWall) {
                 if (tx < t.x + t.w && tx + stalker.size > t.x &&
@@ -287,7 +377,7 @@ function teleportStalkerSafely(isCloseToPlayer = false) {
                 }
             }
         }
-        if (!hitWall) validSpot = true; // spot is vaild once there is no collsion 
+        if (!hitWall) validSpot = true; 
         attempts++;
     }
     stalker.x = tx;
@@ -296,6 +386,34 @@ function teleportStalkerSafely(isCloseToPlayer = false) {
 
 function update() {
     if (!gameStarted) return;
+
+    if (intro.active) {
+        if (intro.fadeState === 'dark') {
+            intro.timer++;
+            if (intro.timer > 60) intro.fadeState = 'fadingIn';
+        } else if (intro.fadeState === 'fadingIn') {
+            intro.alpha -= 0.01;
+            if (intro.alpha <= 0) {
+                intro.alpha = 0;
+                intro.fadeState = 'dialogue';
+                intro.timer = 0;
+            }
+        } else if (intro.fadeState === 'dialogue') {
+            intro.timer++;
+            if (intro.timer % 2 === 0 && intro.charIdx < introDialogue[intro.lineIdx].text.length) {
+                intro.showText += introDialogue[intro.lineIdx].text[intro.charIdx];
+                intro.charIdx++;
+            }
+        } else if (intro.fadeState === 'flickerOut') {
+            intro.timer++;
+            intro.alpha = Math.random() > 0.5 ? 0.8 : 0.1; 
+            if (intro.timer > 60) {
+                intro.active = false;
+                intro.alpha = 0;
+            }
+        }
+        return; 
+    }
 
     const isMoving = keys['w'] || keys['s'] || keys['a'] || keys['d'] || 
                      keys['arrowup'] || keys['arrowdown'] || keys['arrowleft'] || keys['arrowright'];
@@ -333,14 +451,13 @@ function update() {
     if (keys['arrowdown'] || keys['s']) nextY += currentSpeed;
     if (keys['arrowleft'] || keys['a']) {
         nextX -= currentSpeed;
-        player.facingLeft = true; // Flips image for left movement
+        player.facingLeft = true; 
     }
     if (keys['arrowright'] || keys['d']) {
         nextX += currentSpeed;
-        player.facingLeft = false; // Uses native right orientation
+        player.facingLeft = false; 
     }
 
-    // collisions with walls only for player
     let canMoveX = true;
     let canMoveY = true;
 
@@ -384,8 +501,6 @@ function update() {
 
             if (!isBeingWatched) {
                 stalker.reactionBuffer = 0; 
-                
-                // Rapidly fade the static out when you look away
                 if (stalker.stareTimer > 0) stalker.stareTimer -= 2;
                 if (stalker.stareTimer < 0) stalker.stareTimer = 0;
 
@@ -397,7 +512,7 @@ function update() {
                 }
             } else {
                 stalker.reactionBuffer++;
-                stalker.stareTimer++; // Grows progressively while looking
+                stalker.stareTimer++; 
                 if (stalker.reactionBuffer > 5) { 
                     stalker.teleportTimer = 0; 
                 }
@@ -424,26 +539,73 @@ function update() {
 
             if (distance < 150) shakeTime = 5; 
         } else {
-            // new mechanic for action mode teleport 
+            // Action Mode Logic
             if (stalker.stunTimer > 0) {
-                stalker.stunTimer--; // recovering from a gunshot
+                stalker.stunTimer--; 
             } else {
+                
+                // Smart Waypoint Logic
+                let target = { x: player.x, y: player.y };
+                let pCenter = { x: player.x + player.size/2, y: player.y + player.size/2 };
+                let sCenter = { x: stalker.x + stalker.size/2, y: stalker.y + stalker.size/2 };
+
+                for (let b of buildings) {
+                    let pIn = (pCenter.x > b.x && pCenter.x < b.x + b.w && pCenter.y > b.y && pCenter.y < b.y + b.h);
+                    let sIn = (sCenter.x > b.x && sCenter.x < b.x + b.w && sCenter.y > b.y && sCenter.y < b.y + b.h);
+                    
+                    if (pIn && !sIn) {
+                        target.x = b.dx; target.y = b.dy; break;
+                    } else if (sIn && !pIn) {
+                        target.x = b.dx; target.y = b.dy; break;
+                    }
+                }
+
+                let dx = target.x - stalker.x;
+                let dy = target.y - stalker.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                
                 stalker.actionTeleportTimer++;
+                let tpCooldown = Math.max(60, 300 - (pagesFound * 30)); 
+                let tpDamage = 15 + (pagesFound * 5); 
                 
-                // more pages more diffcualt
-                let tpCooldown = Math.max(60, 300 - (pagesFound * 30)); // drops from 5s down to 1s
-                let tpDamage = 15 + (pagesFound * 5); // form 15 to 50
-                
-                // Attack Time
                 if (stalker.actionTeleportTimer >= tpCooldown) {
-                    playerHealth -= tpDamage;
-                    shakeTime = 30; // heavy damage shake
-                    stalker.staticTimer = 40; // intense static to completely jide the teleport
-                    
-                    teleportStalkerSafely(true); 
-                    stalker.actionTeleportTimer = 0;
-                    
-                    // death check for player
+                    if (dist < 1800) {
+                        playerHealth -= tpDamage;
+                        shakeTime = 30; 
+                        stalker.staticTimer = 40; 
+                        
+                        teleportStalkerSafely(true); 
+                        stalker.actionTeleportTimer = 0;
+                        
+                        if (playerHealth <= 0) {
+                            endScreen = "gameover";
+                            for (let key in keys) { keys[key] = false; }
+                            player.x = WORLD_WIDTH / 2; player.y = WORLD_HEIGHT / 2;
+                            teleportStalkerSafely(false);
+                            pagesFound = 0; stamina = 100;
+                            playerHealth = 100; ammo = 6;
+                            isSprinting = false; shakeTime = 0;
+                            stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
+                            stalker.actionTeleportTimer = 0; stalker.stunTimer = 0;
+                            gameStarted = false;
+                            return;
+                        }
+                    } else {
+                        teleportStalkerSafely(true); 
+                        stalker.actionTeleportTimer = 0;
+                    }
+                }
+
+                if ( 
+                    player.x < stalker.x + stalker.size &&
+                    player.x + player.size > stalker.x &&
+                    player.y < stalker.y + stalker.size &&
+                    player.y + player.size > stalker.y
+                ) {
+                    playerHealth -= 30;
+                    shakeTime = 30;
+                    stalker.staticTimer = 40;
+                    teleportStalkerSafely(true);
                     if (playerHealth <= 0) {
                         endScreen = "gameover";
                         for (let key in keys) { keys[key] = false; }
@@ -494,15 +656,12 @@ function update() {
                 stalker.staticTimer = 10; 
                 bullets.splice(i, 1);
                 
-                // bullet inflictss 20 second cooldown in action mode
                 if (gameMode === "action") {
-                    stalker.stunTimer = 1200; // 60 FPS * 20 sec = 1200 frames whichs is the 20 seconds i need 
+                    stalker.stunTimer = 1200; 
                     stalker.actionTeleportTimer = 0; 
-                    // if he got hit teleport to the deepset part of the boonies because the idiot would just be in the map
                     stalker.x = -10000;
                     stalker.y = -10000;
                 } else {
-                    // in horror mode just do the normal safe teleport
                     teleportStalkerSafely(false);
                 }
             }
@@ -526,13 +685,11 @@ function update() {
             }
         }
         
-        // spawn the next page based on our safe static array
         if (pagesFound < 8) {
             page.x = pageLocations[pagesFound].x;
             page.y = pageLocations[pagesFound].y; 
             stalker.speed += 0.2;     
             
-            // reheal and resupply on page collect
             if (gameMode === "action") {
                 playerHealth = 100;
                 ammo += 3;
@@ -558,23 +715,25 @@ function update() {
 }
 
 function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.save();
     
     ctx.imageSmoothingEnabled = false;
     
-    // Constant minor trembling if injured in Action Mode
     if (gameStarted && gameMode === "action" && playerHealth < 100) {
         let hurtTremble = (100 - playerHealth) / 20;
         ctx.translate((Math.random() - 0.5) * hurtTremble, (Math.random() - 0.5) * hurtTremble);
     }
 
     if (shakeTime > 0) {
-        let shakeX = (Math.random() - 0.5) * 15; // Increased base shake
+        let shakeX = (Math.random() - 0.5) * 15; 
         let shakeY = (Math.random() - 0.5) * 15;
         ctx.translate(shakeX, shakeY);
     }
     
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     let zoom = 1.5;
     let camX = player.x + player.size / 2 - (canvas.width / 2) / zoom;
     let camY = player.y + player.size / 2 - (canvas.height / 2) / zoom;
@@ -583,13 +742,11 @@ function draw() {
     ctx.scale(zoom, zoom); 
     ctx.translate(-camX, -camY); 
 
+    // draw gorund 
     try {
         if (groundImg.complete && groundImg.width > 0) {
             const pattern = ctx.createPattern(groundImg, 'repeat');
             ctx.fillStyle = pattern;
-            ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-        } else {
-            ctx.fillStyle = "black";
             ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
         }
     } catch (e) {
@@ -598,7 +755,19 @@ function draw() {
     }
 
     if (gameStarted) {
-        // Draw Walls FIRST
+        // inddor floor 
+        obstacles.forEach(t => {
+            if (t.isFloor && t.img.complete && t.img.width > 0) {
+                ctx.save();
+                const pattern = ctx.createPattern(t.img, 'repeat');
+                ctx.fillStyle = pattern;
+                ctx.translate(t.x, t.y);
+                ctx.fillRect(0, 0, t.w, t.h);
+                ctx.restore();
+            }
+        });
+
+        //walls 
         obstacles.forEach(t => {
             if (t.isWall) {
                 ctx.fillStyle = "#3d2314"; 
@@ -615,12 +784,18 @@ function draw() {
             }
         });
 
-        // Draw Stalker
-        if (pagesFound > 0 && slenderImg.complete && slenderImg.width > 0) {
+        // campfire scarecrows stuff 
+        obstacles.forEach(t => {
+            if (t.isProp && t.img.complete && t.img.width > 0) {
+                ctx.drawImage(t.img, t.x, t.y, t.w, t.h);
+            }
+        });
+
+        // moving entities 
+        if (pagesFound > 0 && slenderImg.complete && slenderImg.width > 0 && !intro.active) {
             ctx.drawImage(slenderImg, stalker.x, stalker.y, stalker.size, stalker.size);
         }
 
-        // Draw Player with Left and Right directional flip
         const currentPlayerImg = player.showAnimFrame ? playerAnimImg : playerImg;
         if (currentPlayerImg.complete && currentPlayerImg.width > 0) {
             ctx.save();
@@ -637,17 +812,16 @@ function draw() {
             ctx.fillRect(player.x, player.y, player.size, player.size);
         }
 
-        // bullet and pages 
-        if (pagesFound < 8) { // Only draw pages if there are pages left to find
+        if (pagesFound < 8 && !intro.active) { 
             ctx.fillStyle = page.color; 
             ctx.fillRect(page.x, page.y, page.size, page.size);
         }
         ctx.fillStyle = 'yellow';
         bullets.forEach(bullet => { ctx.fillRect(bullet.x, bullet.y, bullet.size, bullet.size); });
 
-        // Draw Trees LAST 
+        //tree (it most overlap over stuff)
         obstacles.forEach(t => {
-            if (!t.isWall && t.img.complete && t.img.width > 0) {
+            if (t.isTree && t.img.complete && t.img.width > 0) {
                 ctx.drawImage(t.img, t.x, t.y, t.w, t.h);
             }
         });
@@ -665,9 +839,9 @@ function draw() {
     ctx.restore();
 
     if (gameStarted && gameMode === "horror") {
-        if (darkCanvas.width !== canvas.width || darkCanvas.height !== canvas.height) {
-            darkCanvas.width = canvas.width;
-            darkCanvas.height = canvas.height;
+        if (darkCanvas.width !== canvas.width + 100 || darkCanvas.height !== canvas.height + 100) {
+            darkCanvas.width = canvas.width + 100;
+            darkCanvas.height = canvas.height + 100;
         }
 
         darkCtx.globalCompositeOperation = "source-over";
@@ -675,52 +849,49 @@ function draw() {
         darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
         darkCtx.globalCompositeOperation = "destination-out";
 
-        const screenCenterX = canvas.width / 2;
-        const screenCenterY = canvas.height / 2;
-        const angle = Math.atan2(mouse.y - screenCenterY, mouse.x - screenCenterX);
+        const darkCenterX = darkCanvas.width / 2;
+        const darkCenterY = darkCanvas.height / 2;
+        const angle = Math.atan2(mouse.y - (canvas.height / 2), mouse.x - (canvas.width / 2));
 
-        const glowGradient = darkCtx.createRadialGradient(screenCenterX, screenCenterY, 30 * zoom, screenCenterX, screenCenterY, 70 * zoom);
+        const glowGradient = darkCtx.createRadialGradient(darkCenterX, darkCenterY, 30 * zoom, darkCenterX, darkCenterY, 70 * zoom);
         glowGradient.addColorStop(0, "rgba(0, 0, 0, 1)");
         glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
         darkCtx.fillStyle = glowGradient;
         darkCtx.beginPath();
-        darkCtx.arc(screenCenterX, screenCenterY, 70 * zoom, 0, Math.PI * 2);
+        darkCtx.arc(darkCenterX, darkCenterY, 70 * zoom, 0, Math.PI * 2);
         darkCtx.fill();
 
-        const beamGradient = darkCtx.createRadialGradient(screenCenterX, screenCenterY, 0, screenCenterX, screenCenterY, 450 * zoom);
+        const beamGradient = darkCtx.createRadialGradient(darkCenterX, darkCenterY, 0, darkCenterX, darkCenterY, 450 * zoom);
         beamGradient.addColorStop(0, "rgba(0, 0, 0, 1)");
         beamGradient.addColorStop(0.7, "rgba(0, 0, 0, 0.8)");
         beamGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
         darkCtx.fillStyle = beamGradient;
         darkCtx.beginPath();
-        darkCtx.moveTo(screenCenterX, screenCenterY);
-        darkCtx.arc(screenCenterX, screenCenterY, 450 * zoom, angle - 0.4, angle + 0.4);
-        darkCtx.lineTo(screenCenterX, screenCenterY);
+        darkCtx.moveTo(darkCenterX, darkCenterY);
+        darkCtx.arc(darkCenterX, darkCenterY, 450 * zoom, angle - 0.4, angle + 0.4);
+        darkCtx.lineTo(darkCenterX, darkCenterY);
         darkCtx.fill();
 
-        ctx.drawImage(darkCanvas, 0, 0);
+        ctx.drawImage(darkCanvas, -50, -50); 
     }
 
-    if (gameStarted) {
+    if (gameStarted && !intro.active) {
         let drawStatic = false;
         let staticAlpha = 0;
 
-        // Base static from Action Mode teleport or normal Horror teleport
         if (stalker.staticTimer > 0) {
             drawStatic = true;
             staticAlpha = 0.6;
         } 
-        // progressive stare static for stopping player from looking too much
         else if (gameMode === "horror" && stalker.stareTimer > 0) {
             drawStatic = true;
-            let stareIntensity = Math.min(stalker.stareTimer / 120, 1); //  after 2 seconds
-            staticAlpha = 0.9 * stareIntensity; // almost solid opacity
+            let stareIntensity = Math.min(stalker.stareTimer / 120, 1);
+            staticAlpha = 0.9 * stareIntensity;
         }
 
         if (drawStatic) {
             ctx.save();
             ctx.globalAlpha = staticAlpha;
-            // Draw tiled/stretched static with random offset to animate it
             let offsetX = -(Math.random() * 256);
             let offsetY = -(Math.random() * 256);
             ctx.drawImage(staticCanvas, offsetX, offsetY, canvas.width + 256, canvas.height + 256);
@@ -756,10 +927,8 @@ function draw() {
             ctx.fillText("Press 'H' for Horror Mode", canvas.width / 2, canvas.height / 2 + 20);
             ctx.fillText("Press 'A' for Action Mode", canvas.width / 2, canvas.height / 2 + 70);
         }
-    } else {
-        // UI Handling depending on Mode
+    } else if (!intro.active) {
         if (gameMode === "action") {
-            // Screen bleeding red based on health lost
             if (playerHealth < 100) {
                 ctx.fillStyle = `rgba(255, 0, 0, ${(100 - playerHealth) / 150})`; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -786,7 +955,6 @@ function draw() {
             }
 
         } else {
-            // Original Horror HUD
             if (stalker.killTimer > 0) {
                 ctx.fillStyle = `rgba(255, 0, 0, ${stalker.killTimer / 240})`; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -804,10 +972,50 @@ function draw() {
             ctx.strokeRect(20, 70, 100, 10);
         }
     }
+
+    if (gameStarted && intro.active) {
+        ctx.save();
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${intro.alpha})`;
+        ctx.fillRect(-50, -50, canvas.width + 100, canvas.height + 100);
+
+        if (intro.fadeState === 'dialogue') {
+            const boxWidth = 800;
+            const boxHeight = 150;
+            const boxX = (canvas.width - boxWidth) / 2;
+            const boxY = canvas.height - boxHeight - 50;
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+            ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+            
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+            const currentLine = introDialogue[intro.lineIdx];
+            
+            ctx.fillStyle = currentLine.speaker === "Player" ? "#4da6ff" : "#ff4d4d";
+            ctx.font = "bold 24px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText(currentLine.speaker, boxX + 20, boxY + 40);
+
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText(intro.showText, boxX + 20, boxY + 80);
+
+            if (intro.charIdx === currentLine.text.length) {
+                ctx.fillStyle = "gray";
+                ctx.font = "italic 16px Arial";
+                ctx.textAlign = "right";
+                ctx.fillText("Press Space to continue...", boxX + boxWidth - 20, boxY + boxHeight - 20);
+            }
+        }
+        ctx.restore();
+    }
+    
     ctx.restore();
 }
 
-// main 
 function gameloop() {
     update(); draw(); requestAnimationFrame(gameloop);
 }
