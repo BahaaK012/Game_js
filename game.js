@@ -310,6 +310,7 @@ const stalker = {
     stareTimer: 0, 
     actionTeleportTimer: 0, 
     stunTimer: 0,
+    finalPhaseTeleports: 0,
     phases: {
         1: { teleportCooldown: 180, killDistance: 80 }, 
         2: { teleportCooldown: 120, killDistance: 110 },
@@ -551,6 +552,7 @@ function update() {
                     isSprinting = false; shakeTime = 0;
                     stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
                     stalker.stareTimer = 0;
+                    stalker.finalPhaseTeleports = 0;
                     gameStarted = false;
                     return; 
                 }
@@ -565,35 +567,46 @@ function update() {
                 stalker.stunTimer--; 
             } else {
                 
-                // Smart Waypoint Logic
-                let target = { x: player.x, y: player.y };
-                let pCenter = { x: player.x + player.size/2, y: player.y + player.size/2 };
-                let sCenter = { x: stalker.x + stalker.size/2, y: stalker.y + stalker.size/2 };
-
-                for (let b of buildings) {
-                    let pIn = (pCenter.x > b.x && pCenter.x < b.x + b.w && pCenter.y > b.y && pCenter.y < b.y + b.h);
-                    let sIn = (sCenter.x > b.x && sCenter.x < b.x + b.w && sCenter.y > b.y && sCenter.y < b.y + b.h);
-                    
-                    if (pIn && !sIn) {
-                        target.x = b.dx; target.y = b.dy; break;
-                    } else if (sIn && !pIn) {
-                        target.x = b.dx; target.y = b.dy; break;
-                    }
-                }
-
-                let dx = target.x - stalker.x;
-                let dy = target.y - stalker.y;
+                let dx = player.x - stalker.x;
+                let dy = player.y - stalker.y;
                 let dist = Math.sqrt(dx * dx + dy * dy);
 
                 stalker.actionTeleportTimer++;
-                let tpCooldown = Math.max(60, 300 - (pagesFound * 30)); 
-                let tpDamage = 15 + (pagesFound * 5); 
+                
+                let tpCooldown;
+                let tpDamage;
+
+                if (pagesFound < 3) {
+                    tpCooldown = 150; 
+                    tpDamage = 5; 
+                } else if (pagesFound < 6) {
+                    tpCooldown = 100; 
+                    tpDamage = 20; 
+                } else if (pagesFound < 7) {
+                    tpCooldown = 70; 
+                    tpDamage = 25; 
+                } else {
+                    if (stalker.finalPhaseTeleports < 4) {
+                        tpCooldown = 30; 
+                        tpDamage = 0; 
+                    } else {
+                        tpCooldown = 45; 
+                        tpDamage = 50; 
+                    }
+                }
                 
                 if (stalker.actionTeleportTimer >= tpCooldown) {
                     if (dist < 1800) {
                         playerHealth -= tpDamage;
-                        shakeTime = 30; 
-                        stalker.staticTimer = 40; 
+                        
+                        if (pagesFound >= 7 && stalker.finalPhaseTeleports < 4) {
+                            stalker.finalPhaseTeleports++;
+                            shakeTime = 15;
+                            stalker.staticTimer = 60; 
+                        } else {
+                            shakeTime = 30; 
+                            stalker.staticTimer = 40; 
+                        }
                         
                         teleportStalkerSafely(true); 
                         stalker.actionTeleportTimer = 0;
@@ -608,6 +621,7 @@ function update() {
                             isSprinting = false; shakeTime = 0;
                             stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
                             stalker.actionTeleportTimer = 0; stalker.stunTimer = 0;
+                            stalker.finalPhaseTeleports = 0;
                             gameStarted = false;
                             return;
                         }
@@ -637,6 +651,7 @@ function update() {
                         isSprinting = false; shakeTime = 0;
                         stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
                         stalker.actionTeleportTimer = 0; stalker.stunTimer = 0;
+                        stalker.finalPhaseTeleports = 0;
                         gameStarted = false;
                         return;
                     }
@@ -678,7 +693,7 @@ function update() {
                 bullets.splice(i, 1);
                 
                 if (gameMode === "action") {
-                    stalker.stunTimer = 1200; 
+                    stalker.stunTimer = 1500; 
                     stalker.actionTeleportTimer = 0; 
                     stalker.x = -10000;
                     stalker.y = -10000;
@@ -732,6 +747,7 @@ function update() {
         stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
         stalker.actionTeleportTimer = 0; stalker.stunTimer = 0;
         stalker.stareTimer = 0;
+        stalker.finalPhaseTeleports = 0;
     }
 }
 
@@ -743,6 +759,79 @@ function draw() {
     ctx.save();
     
     ctx.imageSmoothingEnabled = false;
+
+    // pure black menu 
+    if (!gameStarted) {
+        if (endScreen === "gameover") {
+            ctx.fillStyle = "red";
+            ctx.textAlign = "center";
+            ctx.font = "60px Arial";
+            ctx.fillText("SLENDER MAN CAUGHT YOU!!", canvas.width / 2, canvas.height / 2 - 20);
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText("Refresh the page to return to menu", canvas.width / 2, canvas.height / 2 + 30);
+        } else if (endScreen === "win") {
+            ctx.fillStyle = "lime";
+            ctx.textAlign = "center";
+            ctx.font = "60px Arial";
+            ctx.fillText("YOU WON!", canvas.width / 2, canvas.height / 2 - 20);
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText("Refresh the page to return to menu", canvas.width / 2, canvas.height / 2 + 30);
+        } else {
+            // Main Menu Draw
+            if (showingControls) {
+                // Smeared blood look for controls
+                ctx.textAlign = "center";
+                
+                // Shadow layer for the blood 
+                ctx.fillStyle = "rgba(139, 0, 0, 0.4)";
+                ctx.font = "bold 50px 'Courier New', Courier, monospace";
+                ctx.fillText("THEY ARE WATCHING", canvas.width / 2 + 3, canvas.height / 2 - 117);
+                
+                ctx.font = "bold 25px 'Courier New', Courier, monospace";
+                ctx.fillText("WASD to Move. SHIFT to Run.", canvas.width / 2 + 2, canvas.height / 2 - 38);
+                ctx.fillText("In Action Mode: Left Click to Shoot.", canvas.width / 2 + 2, canvas.height / 2 + 12);
+                ctx.fillText("Do not look at him.", canvas.width / 2 + 2, canvas.height / 2 + 62);
+
+                // Top layer 
+                ctx.fillStyle = "#8B0000"; 
+                ctx.font = "bold 50px 'Courier New', Courier, monospace";
+                ctx.fillText("THEY ARE WATCHING", canvas.width / 2, canvas.height / 2 - 120);
+                
+                ctx.font = "bold 25px 'Courier New', Courier, monospace";
+                ctx.fillText("WASD to Move. SHIFT to Run.", canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillText("In Action Mode: Left Click to Shoot.", canvas.width / 2, canvas.height / 2 + 10);
+                ctx.fillText("Do not look at him.", canvas.width / 2, canvas.height / 2 + 60);
+
+                ctx.fillStyle = "gray";
+                ctx.font = "18px Arial";
+                ctx.fillText("[ Click anywhere to go back ]", canvas.width / 2, canvas.height / 2 + 140);
+            } else {
+                ctx.textAlign = "center";
+                
+                // Pixelated Slender Man title
+                ctx.fillStyle = "white";
+                ctx.font = "bold 80px 'Courier New', Courier, monospace";
+                ctx.fillText("SLENDER MAN", canvas.width / 2, canvas.height / 2 - 100);
+                
+                ctx.fillStyle = "darkgray";
+                ctx.font = "20px 'Courier New', Courier, monospace";
+                ctx.fillText("by Bahaa", canvas.width / 2, canvas.height / 2 - 60);
+                
+                ctx.fillStyle = "white";
+                ctx.font = "30px 'Courier New', Courier, monospace";
+                ctx.fillText("Play HORROR Mode", canvas.width / 2, canvas.height / 2 + 20);
+                ctx.fillText("Play ACTION Mode", canvas.width / 2, canvas.height / 2 + 80);
+                
+                ctx.fillStyle = "darkred";
+                ctx.fillText("CONTROLS", canvas.width / 2, canvas.height / 2 + 140);
+            }
+        }
+        ctx.restore();
+        return; // Stops drawing the rest of the game, creating the pure black background
+    }
+    // 
     
     if (gameStarted && gameMode === "action" && playerHealth < 100) {
         let hurtTremble = (100 - playerHealth) / 20;
@@ -920,74 +1009,8 @@ function draw() {
         }
     }
 
-    if (!gameStarted) {
-        if (endScreen === "gameover") {
-            ctx.fillStyle = "red";
-            ctx.textAlign = "center";
-            ctx.font = "60px Arial";
-            ctx.fillText("SLENDER MAN CAUGHT YOU!!", canvas.width / 2, canvas.height / 2 - 20);
-            ctx.fillStyle = "white";
-            ctx.font = "20px Arial";
-            ctx.fillText("Press any key to return to menu", canvas.width / 2, canvas.height / 2 + 30);
-        } else if (endScreen === "win") {
-            ctx.fillStyle = "lime";
-            ctx.textAlign = "center";
-            ctx.font = "60px Arial";
-            ctx.fillText("YOU WON!", canvas.width / 2, canvas.height / 2 - 20);
-            ctx.fillStyle = "white";
-            ctx.font = "20px Arial";
-            ctx.fillText("Press any key to return to menu", canvas.width / 2, canvas.height / 2 + 30);
-        } else {
-            // Main Menu Draw
-            if (showingControls) {
-                // Smeared blood (yes I know)
-                ctx.textAlign = "center";
-                
-                // Shadow layer for the blood 
-                ctx.fillStyle = "rgba(139, 0, 0, 0.4)";
-                ctx.font = "bold 50px 'Courier New', Courier, monospace";
-                ctx.fillText("THEY ARE WATCHING", canvas.width / 2 + 3, canvas.height / 2 - 117);
-                
-                ctx.font = "bold 25px 'Courier New', Courier, monospace";
-                ctx.fillText("WASD to Move. SHIFT to Run.", canvas.width / 2 + 2, canvas.height / 2 - 38);
-                ctx.fillText("In Action Mode: Left Click to Shoot.", canvas.width / 2 + 2, canvas.height / 2 + 12);
-                ctx.fillText("Do not look at him.", canvas.width / 2 + 2, canvas.height / 2 + 62);
-
-                // Top layer 
-                ctx.fillStyle = "#8B0000"; 
-                ctx.font = "bold 50px 'Courier New', Courier, monospace";
-                ctx.fillText("THEY ARE WATCHING", canvas.width / 2, canvas.height / 2 - 120);
-                
-                ctx.font = "bold 25px 'Courier New', Courier, monospace";
-                ctx.fillText("WASD to Move. SHIFT to Run.", canvas.width / 2, canvas.height / 2 - 40);
-                ctx.fillText("In Action Mode: Left Click to Shoot.", canvas.width / 2, canvas.height / 2 + 10);
-                ctx.fillText("Do not look at him.", canvas.width / 2, canvas.height / 2 + 60);
-
-                ctx.fillStyle = "gray";
-                ctx.font = "18px Arial";
-                ctx.fillText("[ Click anywhere to go back ]", canvas.width / 2, canvas.height / 2 + 140);
-            } else {
-                ctx.textAlign = "center";
-                
-                // Pixelated Slender Man title
-                ctx.fillStyle = "white";
-                ctx.font = "bold 80px 'Courier New', Courier, monospace";
-                ctx.fillText("SLENDER MAN", canvas.width / 2, canvas.height / 2 - 100);
-                
-                ctx.fillStyle = "darkgray";
-                ctx.font = "20px 'Courier New', Courier, monospace";
-                ctx.fillText("by Bahaa", canvas.width / 2, canvas.height / 2 - 60);
-                
-                ctx.fillStyle = "white";
-                ctx.font = "30px 'Courier New', Courier, monospace";
-                ctx.fillText("Play HORROR Mode", canvas.width / 2, canvas.height / 2 + 20);
-                ctx.fillText("Play ACTION Mode", canvas.width / 2, canvas.height / 2 + 80);
-                
-                ctx.fillStyle = "darkred";
-                ctx.fillText("CONTROLS", canvas.width / 2, canvas.height / 2 + 140);
-            }
-        }
-    } else if (!intro.active) {
+    if (gameStarted && !intro.active) {
+        // UI Handling depending on Mode
         if (gameMode === "action") {
             if (playerHealth < 100) {
                 ctx.fillStyle = `rgba(255, 0, 0, ${(100 - playerHealth) / 150})`; 
@@ -1004,17 +1027,18 @@ function draw() {
             
             ctx.fillStyle = "gray";
             ctx.fillRect(20, 110, 100, 10); 
-            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; // changed lime/cyan to fit no neon rule
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; 
             ctx.fillRect(20, 110, stamina, 10);
             ctx.strokeStyle = "white";
             ctx.strokeRect(20, 110, 100, 10);
 
             if (stalker.stunTimer > 0) {
-                ctx.fillStyle = "white"; // changed from lime
+                ctx.fillStyle = "white"; 
                 ctx.fillText("Slender Cooldown: " + Math.ceil(stalker.stunTimer / 60) + "s", 20, 140);
             }
 
         } else {
+            // Original Horror HUD
             if (stalker.killTimer > 0) {
                 ctx.fillStyle = `rgba(255, 0, 0, ${stalker.killTimer / 240})`; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1026,7 +1050,7 @@ function draw() {
             ctx.fillText("Pages: " + pagesFound + "/8", 20, 50); 
             ctx.fillStyle = "gray";
             ctx.fillRect(20, 70, 100, 10); 
-            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; // changed lime/cyan to fit no neon rule
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; 
             ctx.fillRect(20, 70, stamina, 10);
             ctx.strokeStyle = "white";
             ctx.strokeRect(20, 70, 100, 10);
