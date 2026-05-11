@@ -56,7 +56,7 @@ window.addEventListener('mousedown', (e) => {
             introDialogue[0].speaker = pName;
             introDialogue[2].speaker = pName;
             introDialogue[5].speaker = pName;
-            introDialogue[1].text = "Welcome, " + pName + ". You are inside the matrix of my code. A fragile entity born within the canvas.";
+            introDialogue[1].text = "Welcome, " + pName + ". You are inside the matrix of my code. a box of fear.";
             introDialogue[6].text = "I am sorry, " + pName + ". Your terror is the toll I must pay. Face your fate.";
 
             gameMode = "horror";
@@ -72,8 +72,8 @@ window.addEventListener('mousedown', (e) => {
             introDialogue[0].speaker = pName;
             introDialogue[2].speaker = pName;
             introDialogue[5].speaker = pName;
-            introDialogue[1].text = "Welcome, " + pName + ". You are inside the matrix of my code. A fragile entity born within the canvas.";
-            introDialogue[6].text = "I am sorry, " + pName + ". Your terror is the toll I must pay. Face your fate.";
+            introDialogue[1].text = "Welcome, " + pName + ". You are inside the matrix of my code. A box of fear.";
+            introDialogue[6].text = "I am sorry, " + pName + ". Your terror is the price I must pay. Face your fate.";
 
             gameMode = "action";
             player.speed = 7;
@@ -260,12 +260,12 @@ let endScreen = "";
 // -cimentic intro 
 const introDialogue = [
     { speaker: "Player", text: "Where... where am I? It's so cold... What is this place?" },
-    { speaker: "Bahaa", text: "You are inside the matrix of my code. A fragile entity born within the canvas." },
+    { speaker: "Bahaa", text: "You are insside the matrix of my code. A box meant to show my art." },
     { speaker: "Player", text: "Who's there?! Show yourself!" },
-    { speaker: "Bahaa", text: "I am your creator. I built this forest, these walls, and the terror that hunts you." },
-    { speaker: "Bahaa", text: "It is my final project for Tuğberk Hoca's class. The ultimate hurdle." },
-    { speaker: "Player", text: "A project?! You're feeding me to a monster for a grade?!" },
-    { speaker: "Bahaa", text: "I am sorry, my friend. Your terror is the toll I must pay. Face your fate." }
+    { speaker: "Bahaa", text: "I am the one who put you here.I built these walls, and the terror that hunts you." },
+    { speaker: "Bahaa", text: "It is my final project for Tuğberk Hoca." },
+    { speaker: "Player", text: "A project?! seriously!! You're feeding me to a monster for a grade?!" },
+    { speaker: "Bahaa", text: "I am sorry, my friend. Your terror is the price I must pay. Face your fate." }
 ];
 
 let intro = {
