@@ -51,6 +51,14 @@ window.addEventListener('mousedown', (e) => {
 
         // Horror Mode Button bounds
         if (Math.abs(mx - cx) < 150 && Math.abs(my - (cy + 20)) < 30) {
+            let pName = prompt("Enter your name:", "Player");
+            if (!pName || pName.trim() === "") pName = "Player";
+            introDialogue[0].speaker = pName;
+            introDialogue[2].speaker = pName;
+            introDialogue[5].speaker = pName;
+            introDialogue[1].text = "Welcome, " + pName + ". You are inside the matrix of my code. A fragile entity born within the canvas.";
+            introDialogue[6].text = "I am sorry, " + pName + ". Your terror is the toll I must pay. Face your fate.";
+
             gameMode = "horror";
             player.speed = 5;
             stalker.speed = 3.0; // Slightly faster for giant map
@@ -59,6 +67,14 @@ window.addEventListener('mousedown', (e) => {
         }
         // Action Mode Button bounds
         else if (Math.abs(mx - cx) < 150 && Math.abs(my - (cy + 80)) < 30) {
+            let pName = prompt("Enter your name:", "Player");
+            if (!pName || pName.trim() === "") pName = "Player";
+            introDialogue[0].speaker = pName;
+            introDialogue[2].speaker = pName;
+            introDialogue[5].speaker = pName;
+            introDialogue[1].text = "Welcome, " + pName + ". You are inside the matrix of my code. A fragile entity born within the canvas.";
+            introDialogue[6].text = "I am sorry, " + pName + ". Your terror is the toll I must pay. Face your fate.";
+
             gameMode = "action";
             player.speed = 7;
             gameStarted = true;
@@ -103,6 +119,9 @@ scarecrowImg.src = 'scarecrow.png';
 
 const scarecrow2Img = new Image();
 scarecrow2Img.src = 'scarecrow2.png';
+
+const deathScreenImg = new Image();
+deathScreenImg.src = 'deathscreen1.png';
 
 const borderImg = new Image();
 borderImg.src = 'Pared del medio_0.png'; 
@@ -310,7 +329,6 @@ const stalker = {
     stareTimer: 0, 
     actionTeleportTimer: 0, 
     stunTimer: 0,
-    finalPhaseTeleports: 0,
     phases: {
         1: { teleportCooldown: 180, killDistance: 80 }, 
         2: { teleportCooldown: 120, killDistance: 110 },
@@ -552,7 +570,6 @@ function update() {
                     isSprinting = false; shakeTime = 0;
                     stalker.killTimer = 0; stalker.teleportTimer = 0; stalker.staticTimer = 0;
                     stalker.stareTimer = 0;
-                    stalker.finalPhaseTeleports = 0;
                     gameStarted = false;
                     return; 
                 }
@@ -567,8 +584,23 @@ function update() {
                 stalker.stunTimer--; 
             } else {
                 
-                let dx = player.x - stalker.x;
-                let dy = player.y - stalker.y;
+                let target = { x: player.x, y: player.y };
+                let pCenter = { x: player.x + player.size/2, y: player.y + player.size/2 };
+                let sCenter = { x: stalker.x + stalker.size/2, y: stalker.y + stalker.size/2 };
+
+                for (let b of buildings) {
+                    let pIn = (pCenter.x > b.x && pCenter.x < b.x + b.w && pCenter.y > b.y && pCenter.y < b.y + b.h);
+                    let sIn = (sCenter.x > b.x && sCenter.x < b.x + b.w && sCenter.y > b.y && sCenter.y < b.y + b.h);
+                    
+                    if (pIn && !sIn) {
+                        target.x = b.dx; target.y = b.dy; break;
+                    } else if (sIn && !pIn) {
+                        target.x = b.dx; target.y = b.dy; break;
+                    }
+                }
+
+                let dx = target.x - stalker.x;
+                let dy = target.y - stalker.y;
                 let dist = Math.sqrt(dx * dx + dy * dy);
 
                 stalker.actionTeleportTimer++;
@@ -760,7 +792,7 @@ function draw() {
     
     ctx.imageSmoothingEnabled = false;
 
-    // pure black menu 
+    // -MAIN MENU
     if (!gameStarted) {
         if (endScreen === "gameover") {
             ctx.fillStyle = "red";
@@ -781,7 +813,7 @@ function draw() {
         } else {
             // Main Menu Draw
             if (showingControls) {
-                // Smeared blood look for controls
+                // Smeared blood look for controls YES I KNOW TOO MUCH 
                 ctx.textAlign = "center";
                 
                 // Shadow layer for the blood 
@@ -815,23 +847,25 @@ function draw() {
                 ctx.font = "bold 80px 'Courier New', Courier, monospace";
                 ctx.fillText("SLENDER MAN", canvas.width / 2, canvas.height / 2 - 100);
                 
+                // Updated Credits
                 ctx.fillStyle = "darkgray";
                 ctx.font = "20px 'Courier New', Courier, monospace";
-                ctx.fillText("by Bahaa", canvas.width / 2, canvas.height / 2 - 60);
+                ctx.fillText("by bahaa", canvas.width / 2, canvas.height / 2 - 50);
+                ctx.fillText("Visuals & Art: Adam", canvas.width / 2, canvas.height / 2 - 25);
                 
                 ctx.fillStyle = "white";
                 ctx.font = "30px 'Courier New', Courier, monospace";
-                ctx.fillText("Play HORROR Mode", canvas.width / 2, canvas.height / 2 + 20);
-                ctx.fillText("Play ACTION Mode", canvas.width / 2, canvas.height / 2 + 80);
+                ctx.fillText("Play HORROR Mode", canvas.width / 2, canvas.height / 2 + 40);
+                ctx.fillText("Play ACTION Mode", canvas.width / 2, canvas.height / 2 + 100);
                 
                 ctx.fillStyle = "darkred";
-                ctx.fillText("CONTROLS", canvas.width / 2, canvas.height / 2 + 140);
+                ctx.fillText("CONTROLS", canvas.width / 2, canvas.height / 2 + 160);
             }
         }
         ctx.restore();
-        return; // Stops drawing the rest of the game, creating the pure black background
+        return; // Stops drawing the rest of the game, creating the pure black background BECAUSE IT MADE A STUPID BUG
     }
-    // 
+    //
     
     if (gameStarted && gameMode === "action" && playerHealth < 100) {
         let hurtTremble = (100 - playerHealth) / 20;
@@ -1027,7 +1061,7 @@ function draw() {
             
             ctx.fillStyle = "gray";
             ctx.fillRect(20, 110, 100, 10); 
-            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; 
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "darkgray" : "white"; 
             ctx.fillRect(20, 110, stamina, 10);
             ctx.strokeStyle = "white";
             ctx.strokeRect(20, 110, 100, 10);
@@ -1050,7 +1084,7 @@ function draw() {
             ctx.fillText("Pages: " + pagesFound + "/8", 20, 50); 
             ctx.fillStyle = "gray";
             ctx.fillRect(20, 70, 100, 10); 
-            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; 
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "darkgray" : "white"; 
             ctx.fillRect(20, 70, stamina, 10);
             ctx.strokeStyle = "white";
             ctx.strokeRect(20, 70, 100, 10);
