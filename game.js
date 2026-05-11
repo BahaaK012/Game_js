@@ -23,6 +23,9 @@ staticCtx.putImageData(staticData, 0, 0);
 const darkCanvas = document.createElement("canvas");
 const darkCtx = darkCanvas.getContext("2d");
 
+// Adding menu state for controls screen
+let showingControls = false;
+
 const mouse = { x:0, y: 0}; 
 window.addEventListener('mousemove', (e)=> {
     mouse.x = e.clientX;
@@ -32,6 +35,39 @@ window.addEventListener('mousemove', (e)=> {
 window.addEventListener('mousedown', (e) => {
     if (gameStarted && gameMode === "action" && !intro.active) {
         shootBullet();
+    }
+    
+    // Mouse interaction for the Main Menu
+    if (!gameStarted && endScreen === "") {
+        const mx = e.clientX;
+        const my = e.clientY;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        if (showingControls) {
+            showingControls = false; // Click anywhere to exit controls
+            return;
+        }
+
+        // Horror Mode Button bounds
+        if (Math.abs(mx - cx) < 150 && Math.abs(my - (cy + 20)) < 30) {
+            gameMode = "horror";
+            player.speed = 5;
+            stalker.speed = 3.0; // Slightly faster for giant map
+            gameStarted = true;
+            intro.active = true; 
+        }
+        // Action Mode Button bounds
+        else if (Math.abs(mx - cx) < 150 && Math.abs(my - (cy + 80)) < 30) {
+            gameMode = "action";
+            player.speed = 7;
+            gameStarted = true;
+            intro.active = true; 
+        }
+        // Controls Button bounds
+        else if (Math.abs(mx - cx) < 150 && Math.abs(my - (cy + 140)) < 30) {
+            showingControls = true;
+        }
     }
 });
 
@@ -71,12 +107,12 @@ scarecrow2Img.src = 'scarecrow2.png';
 const borderImg = new Image();
 borderImg.src = 'Pared del medio_0.png'; 
 
-// 4x map size becuase why not 
+// 4x map size
 const WORLD_WIDTH = 10000;
 const WORLD_HEIGHT = 8000;
 const BORDER_SIZE = 20; 
 
-// bilding coordinates 
+// Building coordinates for AI pathfinding
 const buildings = [
     { x: 1000, y: 1000, w: 1500, h: 1200, dx: 1750, dy: 2300 }, // Manor
     { x: 4000, y: 5000, w: 2000, h: 1500, dx: 5000, dy: 6600 }, // Warehouse
@@ -85,11 +121,11 @@ const buildings = [
 ];
 
 const obstacles = [
-    // bulding 1 floor + wall
+    // buldinh 1 wall and indoor 
     { img: floorImg, x: 1000, y: 1000, w: 1500, h: 1200, isFloor: true },
     { img: wallImg, x: 1000, y: 1000, w: 1500, h: 40, isWall: true }, // Top
     { img: wallImg, x: 1000, y: 2160, w: 650, h: 40, isWall: true }, // Bottom L
-    { img: wallImg, x: 1850, y: 2160, w: 650, h: 40, isWall: true }, // Bottom R 
+    { img: wallImg, x: 1850, y: 2160, w: 650, h: 40, isWall: true }, // Bottom R (Entrance)
     { img: wallImg, x: 1000, y: 1000, w: 40, h: 1200, isWall: true }, // Left
     { img: wallImg, x: 2460, y: 1000, w: 40, h: 1200, isWall: true }, // Right
     { img: wallImg, x: 1040, y: 1500, w: 610, h: 40, isWall: true }, // Inner H Divider L
@@ -103,7 +139,7 @@ const obstacles = [
     { img: wallImg, x: 1850, y: 1450, w: 40, h: 300, isWall: true },  // btw this is hell 
     { img: wallImg, x: 1850, y: 1900, w: 40, h: 260, isWall: true }, 
 
-    // 2 same 
+    // 2
     { img: floorImg, x: 4000, y: 5000, w: 2000, h: 1500, isFloor: true },
     { img: wallImg, x: 4000, y: 5000, w: 2000, h: 40, isWall: true }, // Top
     { img: wallImg, x: 4000, y: 6460, w: 900, h: 40, isWall: true }, // Bottom L
@@ -231,16 +267,16 @@ let isExhausted = false;
 const maxStamina = 100;
 let shakeTime = 0;
 
-// static safe locations for pages 
+// static page locations because when I showed it to my lecturer the pages decided not to appear
 const pageLocations = [
-    { x: 1200, y: 1200 }, // Deep inside Manor
-    { x: 5000, y: 5700 }, // Deep inside Warehouse
-    { x: 7900, y: 1900 }, // Deep inside Asylum
-    { x: 8200, y: 6700 }, // Deep inside Lodge
-    { x: 2000, y: 7000 }, // Woods Deep South
-    { x: 9000, y: 1000 }, // Woods Far East
-    { x: 1000, y: 6000 }, // Woods West
-    { x: 5000, y: 1500 }  // Woods North
+    { x: 1300, y: 400 },  // Inside Building 1 (Top Left Room)
+    { x: 3800, y: 2200 }, // Inside Building 2 (Warehouse)
+    { x: 800, y: 3150 },  // Inside Building 3 (Shed)
+    { x: 400, y: 800 },   // Woods Top-Left
+    { x: 2800, y: 1000 }, // Woods Top-Mid
+    { x: 4600, y: 500 },  // Woods Top-Right
+    { x: 2000, y: 3500 }, // Woods Bottom-Mid
+    { x: 1500, y: 1500 }  // Woods Center
 ];
 
 let pagesFound = 0;
@@ -311,21 +347,6 @@ window.addEventListener('keydown', (e) => {
     }
     if (e.code === 'Space' && gameStarted && gameMode === "action" && !intro.active) {
         shootBullet();
-    }
-    if (!gameStarted) {
-        if (e.key.toLowerCase() === 'h') {
-            gameMode = "horror";
-            player.speed = 5;
-            stalker.speed = 3.0; // Slightly faster for giant map
-            gameStarted = true;
-            intro.active = true; 
-        }
-        if (e.key.toLowerCase() === 'a') {
-            gameMode = "action";
-            player.speed = 7;
-            gameStarted = true;
-            intro.active = true; 
-        }
     }
 });
 
@@ -563,7 +584,7 @@ function update() {
                 let dx = target.x - stalker.x;
                 let dy = target.y - stalker.y;
                 let dist = Math.sqrt(dx * dx + dy * dy);
-                
+
                 stalker.actionTeleportTimer++;
                 let tpCooldown = Math.max(60, 300 - (pagesFound * 30)); 
                 let tpDamage = 15 + (pagesFound * 5); 
@@ -917,15 +938,54 @@ function draw() {
             ctx.font = "20px Arial";
             ctx.fillText("Press any key to return to menu", canvas.width / 2, canvas.height / 2 + 30);
         } else {
-            ctx.fillStyle = "white";
-            ctx.textAlign = "center";
-            ctx.font = "60px Arial";
-            ctx.fillText("Slender Man Game", canvas.width / 2, canvas.height / 2 - 100);
-            ctx.font = "20px Arial";
-            ctx.fillText("by Bahaa", canvas.width / 2, canvas.height / 2 - 60);
-            ctx.font = "30px Arial";
-            ctx.fillText("Press 'H' for Horror Mode", canvas.width / 2, canvas.height / 2 + 20);
-            ctx.fillText("Press 'A' for Action Mode", canvas.width / 2, canvas.height / 2 + 70);
+            // Main Menu Draw
+            if (showingControls) {
+                // Smeared blood (yes I know)
+                ctx.textAlign = "center";
+                
+                // Shadow layer for the blood 
+                ctx.fillStyle = "rgba(139, 0, 0, 0.4)";
+                ctx.font = "bold 50px 'Courier New', Courier, monospace";
+                ctx.fillText("THEY ARE WATCHING", canvas.width / 2 + 3, canvas.height / 2 - 117);
+                
+                ctx.font = "bold 25px 'Courier New', Courier, monospace";
+                ctx.fillText("WASD to Move. SHIFT to Run.", canvas.width / 2 + 2, canvas.height / 2 - 38);
+                ctx.fillText("In Action Mode: Left Click to Shoot.", canvas.width / 2 + 2, canvas.height / 2 + 12);
+                ctx.fillText("Do not look at him.", canvas.width / 2 + 2, canvas.height / 2 + 62);
+
+                // Top layer 
+                ctx.fillStyle = "#8B0000"; 
+                ctx.font = "bold 50px 'Courier New', Courier, monospace";
+                ctx.fillText("THEY ARE WATCHING", canvas.width / 2, canvas.height / 2 - 120);
+                
+                ctx.font = "bold 25px 'Courier New', Courier, monospace";
+                ctx.fillText("WASD to Move. SHIFT to Run.", canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillText("In Action Mode: Left Click to Shoot.", canvas.width / 2, canvas.height / 2 + 10);
+                ctx.fillText("Do not look at him.", canvas.width / 2, canvas.height / 2 + 60);
+
+                ctx.fillStyle = "gray";
+                ctx.font = "18px Arial";
+                ctx.fillText("[ Click anywhere to go back ]", canvas.width / 2, canvas.height / 2 + 140);
+            } else {
+                ctx.textAlign = "center";
+                
+                // Pixelated Slender Man title
+                ctx.fillStyle = "white";
+                ctx.font = "bold 80px 'Courier New', Courier, monospace";
+                ctx.fillText("SLENDER MAN", canvas.width / 2, canvas.height / 2 - 100);
+                
+                ctx.fillStyle = "darkgray";
+                ctx.font = "20px 'Courier New', Courier, monospace";
+                ctx.fillText("by Bahaa", canvas.width / 2, canvas.height / 2 - 60);
+                
+                ctx.fillStyle = "white";
+                ctx.font = "30px 'Courier New', Courier, monospace";
+                ctx.fillText("Play HORROR Mode", canvas.width / 2, canvas.height / 2 + 20);
+                ctx.fillText("Play ACTION Mode", canvas.width / 2, canvas.height / 2 + 80);
+                
+                ctx.fillStyle = "darkred";
+                ctx.fillText("CONTROLS", canvas.width / 2, canvas.height / 2 + 140);
+            }
         }
     } else if (!intro.active) {
         if (gameMode === "action") {
@@ -944,13 +1004,13 @@ function draw() {
             
             ctx.fillStyle = "gray";
             ctx.fillRect(20, 110, 100, 10); 
-            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "cyan" : "lime";
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; // changed lime/cyan to fit no neon rule
             ctx.fillRect(20, 110, stamina, 10);
             ctx.strokeStyle = "white";
             ctx.strokeRect(20, 110, 100, 10);
 
             if (stalker.stunTimer > 0) {
-                ctx.fillStyle = "lime";
+                ctx.fillStyle = "white"; // changed from lime
                 ctx.fillText("Slender Cooldown: " + Math.ceil(stalker.stunTimer / 60) + "s", 20, 140);
             }
 
@@ -966,7 +1026,7 @@ function draw() {
             ctx.fillText("Pages: " + pagesFound + "/8", 20, 50); 
             ctx.fillStyle = "gray";
             ctx.fillRect(20, 70, 100, 10); 
-            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "cyan" : "lime";
+            ctx.fillStyle = isExhausted ? "red" : isSprinting ? "gray" : "white"; // changed lime/cyan to fit no neon rule
             ctx.fillRect(20, 70, stamina, 10);
             ctx.strokeStyle = "white";
             ctx.strokeRect(20, 70, 100, 10);
